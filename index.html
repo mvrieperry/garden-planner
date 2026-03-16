@@ -552,6 +552,10 @@
             <option>🌱 Radishes</option>
             <option>🌱 Vegetable</option>
           </optgroup>
+          <optgroup label="Cannabis">
+            <option>🍃 Cannabis (Autoflower)</option>
+            <option>🍃 Cannabis (Photoperiod)</option>
+          </optgroup>
           <optgroup label="Herbs">
             <option>🌿 Basil</option>
             <option>🌿 Chives</option>
@@ -1368,6 +1372,10 @@ const PLANT_DATA = {
   '🍒 Cherries':      { emoji:'🍒', sqft:64,   spacing:120,depthIn:18, sun:'Full',      water:'Medium', trellis:false, notes:'Sweet cherries need a pollinator variety. Sour cherries are self-fertile.', companions:[],    avoid:[] },
   '🍋 Lemon':         { emoji:'🍋', sqft:16,   spacing:72, depthIn:12, sun:'Full',      water:'Medium', trellis:false, notes:'Frost-sensitive. Grow in containers in cold climates; bring indoors in winter.', companions:[],avoid:[] },
   '🥝 Kiwi':          { emoji:'🥝', sqft:64,   spacing:120,depthIn:12, sun:'Full',      water:'Medium', trellis:true,  notes:'Vigorous climber — needs sturdy trellis. Plant 1 male per 6-8 female plants.', companions:[],  avoid:[] },
+
+  // ── Cannabis ──────────────────────────────────────────────────────────────
+  '🍃 Cannabis (Autoflower)':  { emoji:'🍃', sqft:4,  spacing:24, depthIn:18, sun:'Full', water:'Medium', trellis:false, notes:'Compact autoflowering variety. Finishes in ~10 weeks regardless of light cycle. Great for small spaces or first-time growers. Rich, well-draining soil.', companions:['🌼 Marigolds','🌿 Basil','🌸 Nasturtiums'], avoid:['🍅 Tomatoes'] },
+  '🍃 Cannabis (Photoperiod)': { emoji:'🍃', sqft:9,  spacing:48, depthIn:18, sun:'Full', water:'High',   trellis:false, notes:'Full-size outdoor plant — can reach 6+ ft and needs lots of space. Flowers triggered by shorter days in late summer. Plant after last frost. Rich, well-draining soil.', companions:['🌼 Marigolds','🌿 Basil','🌸 Nasturtiums'], avoid:['🍅 Tomatoes'] },
 };
 
 // ─── Save / Load JSON ─────────────────────────────────────────────────────────
