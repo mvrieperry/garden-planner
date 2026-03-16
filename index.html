@@ -1834,9 +1834,12 @@ function closeTutorial() {
     localStorage.setItem('gardenPlannerTutorialSeen', '1');
   }
 }
-if (!localStorage.getItem('gardenPlannerTutorialSeen')) {
-  showTutorial();
-}
+// Defer until after the modal HTML (below this script tag) has been parsed
+setTimeout(function() {
+  if (!localStorage.getItem('gardenPlannerTutorialSeen')) {
+    showTutorial();
+  }
+}, 0);
 </script>
 
 <!-- Welcome / tutorial modal -->
