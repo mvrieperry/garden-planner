@@ -606,6 +606,36 @@ let dragging   = null;
 let dragOff    = { x: 0, y: 0 };
 let nextId     = 20;
 
+// ─── Undo History ─────────────────────────────────────────────────────────────
+const MAX_HISTORY = 50;
+const undoStack   = [];
+let   _propHistorySaved = false; // prevents saving on every keystroke in text fields
+
+function saveHistory() {
+  undoStack.push({
+    beds:      JSON.parse(JSON.stringify(beds)),
+    obstacles: JSON.parse(JSON.stringify(obstacles)),
+    garden:    { ...garden },
+    nextId,
+  });
+  if (undoStack.length > MAX_HISTORY) undoStack.shift();
+}
+
+function undoLast() {
+  if (!undoStack.length) return;
+  const snap = undoStack.pop();
+  beds      = snap.beds;
+  obstacles = snap.obstacles;
+  garden    = { ...snap.garden };
+  nextId    = snap.nextId;
+  _propHistorySaved = false;
+  // If the previously selected item no longer exists, deselect it
+  const stillExists = beds.find(b => b.id === selectedId) || obstacles.find(o => o.id === selectedId);
+  if (!stillExists) select(null);
+  else syncPanel();
+  renderLists(); draw();
+}
+
 // ─── Data ────────────────────────────────────────────────────────────────────
 let obstacles = [
   { id:'obs1', name:'🌳 Tree',      x:0,  y:0,  w:4, h:4, color:'#5aaa5b' },
@@ -867,6 +897,7 @@ canvas.addEventListener('mousedown', e => {
   const mpx = e.clientX - r.left, mpy = e.clientY - r.top;
   const hit = hitTest(mpx, mpy);
   if (hit) {
+    saveHistory(); // save before drag so position change is undoable
     select(hit.item.id, hit.type);
     dragging = hit.item;
     dragOff  = { x: mpx - ft(hit.item.x), y: mpy - ft(hit.item.y) };
@@ -909,8 +940,14 @@ canvas.addEventListener('dblclick', e => {
 
 // ─── Keyboard shortcuts ───────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
+  // Ctrl+Z / Cmd+Z — undo (always active, even when typing)
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+    e.preventDefault();
+    undoLast();
+    return;
+  }
   if (!selectedId) return;
-  // Don't fire when user is typing in an input / textarea
+  // Don't fire Delete when user is typing in an input / textarea
   const tag = document.activeElement.tagName;
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
   if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -939,6 +976,7 @@ function isBedSelected() {
 function syncPanel() {
   const item = getSelected();
   if (!item) return;
+  _propHistorySaved = false; // reset so next edit on this item saves a fresh snapshot
   const isBed = isBedSelected();
 
   const isGround = isBed && item.type === 'ground';
@@ -977,6 +1015,8 @@ function syncPositionFields() {
 function updateProp(field, value) {
   const item = getSelected();
   if (!item) return;
+  // Save history once per editing session (reset when panel re-opens via syncPanel)
+  if (!_propHistorySaved) { saveHistory(); _propHistorySaved = true; }
   item[field] = value;
   draw(); renderLists();
 }
@@ -997,18 +1037,20 @@ function addPlant() {
   const sel = document.getElementById('plantSelect');
   const p = sel.value; if (!p) return;
   const bed = beds.find(b => b.id === selectedId); if (!bed) return;
-  if (!bed.plants.includes(p)) { bed.plants.push(p); renderPlantTags(bed); draw(); }
+  if (!bed.plants.includes(p)) { saveHistory(); bed.plants.push(p); renderPlantTags(bed); draw(); }
   sel.value = '';
 }
 
 function removePlant(plant) {
   const bed = beds.find(b => b.id === selectedId); if (!bed) return;
+  saveHistory();
   bed.plants = bed.plants.filter(p => p !== plant);
   renderPlantTags(bed); draw();
 }
 
 // ─── Add / Remove ─────────────────────────────────────────────────────────────
 function addBed() {
+  saveHistory();
   const id = 'bed' + nextId++;
   const color = BED_COLORS[colorIdx++ % BED_COLORS.length];
   beds.push({ id, name:'New Bed', x:2, y:2, w:4, h:8, color, type:'raised', depthIn:12, plants:[], notes:'' });
@@ -1016,12 +1058,14 @@ function addBed() {
 }
 
 function addGroundArea() {
+  saveHistory();
   const id = 'area' + nextId++;
   beds.push({ id, name:'Ground Area', x:1, y:1, w:6, h:4, color:'#3a7d44', type:'ground', plants:[], notes:'' });
   select(id, 'bed'); renderLists(); draw();
 }
 
 function addPot() {
+  saveHistory();
   const id = 'pot' + nextId++;
   beds.push({ id, name:'Pot', x:2, y:2, diam:1, w:1, h:1, color:'#c1440e', type:'pot', plants:[], notes:'' });
   select(id, 'bed'); renderLists(); draw();
@@ -1030,6 +1074,7 @@ function addPot() {
 function updatePotDiam(val) {
   const bed = beds.find(b => b.id === selectedId);
   if (!bed || bed.type !== 'pot') return;
+  saveHistory();
   bed.diam = val; bed.w = val; bed.h = val;
   draw(); renderLists();
 }
@@ -1037,6 +1082,7 @@ function updatePotDiam(val) {
 function addObstacle() {
   const name = prompt('Name this obstacle (e.g. 🌳 Tree, 🚪 Door, 🪑 Furniture):', '⬛ Obstacle');
   if (!name) return;
+  saveHistory();
   const id = 'obs' + nextId++;
   obstacles.push({ id, name, x:4, y:4, w:4, h:4, color:'#888' });
   renderLists(); draw(); select(id, 'obstacle');
@@ -1044,6 +1090,7 @@ function addObstacle() {
 
 function duplicateSelected() {
   if (!selectedId) return;
+  saveHistory();
   const isBed = beds.find(b => b.id === selectedId);
   const isObs = obstacles.find(o => o.id === selectedId);
   if (isBed) {
@@ -1066,6 +1113,7 @@ function duplicateSelected() {
 function deleteSelected() {
   if (!selectedId) return;
   if (!confirm('Remove this item?')) return;
+  saveHistory();
   beds      = beds.filter(b => b.id !== selectedId);
   obstacles = obstacles.filter(o => o.id !== selectedId);
   select(null);
@@ -1074,6 +1122,7 @@ function deleteSelected() {
 
 // ─── Garden size ──────────────────────────────────────────────────────────────
 function applyGardenSize() {
+  saveHistory();
   garden.width  = parseFloat(document.getElementById('gardenWidth').value)  || 20;
   garden.height = parseFloat(document.getElementById('gardenHeight').value) || 18;
   initCanvas();
@@ -1082,6 +1131,7 @@ function applyGardenSize() {
 // ─── Suggest layout ───────────────────────────────────────────────────────────
 function suggestLayout() {
   if (!confirm('Reset to the suggested perimeter layout?')) return;
+  saveHistory();
   beds = [
     { id:'bed1', name:'Bed 1 — Top',    x:4,   y:0,  w:10, h:4, color:'#8B5E3C', type:'raised', depthIn:12,
       plants:['🍅 Tomatoes','🌶️ Hot Peppers'], notes:'Full sun. Stake tomatoes, cage peppers.' },
