@@ -444,7 +444,10 @@
   <div class="right-panel" id="rightPanel">
     <div class="panel-header">
       <h2 id="panelTitle">Details</h2>
-      <button class="btn btn-sm btn-danger" onclick="deleteSelected()">🗑 Remove</button>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-sm btn-secondary" onclick="duplicateSelected()" title="Duplicate (makes a copy offset by 1 ft)">📋 Duplicate</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteSelected()">🗑 Remove</button>
+      </div>
     </div>
 
     <div class="panel-section">
@@ -507,7 +510,6 @@
             <option>🍆 Eggplant</option>
             <option>🥒 Cucumbers</option>
             <option>🎃 Squash</option>
-            <option>🍉 Watermelon</option>
             <option>🌽 Corn</option>
             <option>🥕 Carrots</option>
             <option>🥔 Potatoes</option>
@@ -905,6 +907,18 @@ canvas.addEventListener('dblclick', e => {
   if (name) { hit.item.name = name; draw(); renderLists(); syncPanel(); }
 });
 
+// ─── Keyboard shortcuts ───────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (!selectedId) return;
+  // Don't fire when user is typing in an input / textarea
+  const tag = document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+  if (e.key === 'Delete' || e.key === 'Backspace') {
+    e.preventDefault();
+    deleteSelected();
+  }
+});
+
 // ─── Selection ────────────────────────────────────────────────────────────────
 function select(id, type) {
   selectedId = id;
@@ -1026,6 +1040,27 @@ function addObstacle() {
   const id = 'obs' + nextId++;
   obstacles.push({ id, name, x:4, y:4, w:4, h:4, color:'#888' });
   renderLists(); draw(); select(id, 'obstacle');
+}
+
+function duplicateSelected() {
+  if (!selectedId) return;
+  const isBed = beds.find(b => b.id === selectedId);
+  const isObs = obstacles.find(o => o.id === selectedId);
+  if (isBed) {
+    const orig = beds.find(b => b.id === selectedId);
+    const newId = (orig.type === 'pot' ? 'pot' : orig.type === 'ground' ? 'area' : 'bed') + nextId++;
+    const copy = { ...orig, id: newId, x: orig.x + 1, y: orig.y + 1,
+                   plants: [...(orig.plants || [])], notes: orig.notes || '' };
+    beds.push(copy);
+    select(newId, 'bed');
+  } else if (isObs) {
+    const orig = obstacles.find(o => o.id === selectedId);
+    const newId = 'obs' + nextId++;
+    const copy = { ...orig, id: newId, x: orig.x + 1, y: orig.y + 1 };
+    obstacles.push(copy);
+    select(newId, 'obstacle');
+  }
+  renderLists(); draw();
 }
 
 function deleteSelected() {
