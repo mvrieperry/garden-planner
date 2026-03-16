@@ -585,18 +585,22 @@ let obstacles = [
   { id:'obs1', name:'🌳 Tree',      x:0,  y:0,  w:4, h:4, color:'#5aaa5b' },
   { id:'obs2', name:'🚪 Door',      x:0,  y:14, w:2, h:4, color:'#b87333' },
   { id:'obs3', name:'🪑 Furniture', x:14, y:0,  w:6, h:6, color:'#9a9a9a' },
-  { id:'obs4', name:'〰️ Hedge',     x:16, y:14, w:4, h:4, color:'#2a7a2a' },
 ];
 
 let beds = [
-  { id:'bed1', name:'Bed 1 — Top',    x:4,  y:0,  w:10, h:4, color:'#8B5E3C', depthIn:12,
+  { id:'bed1', name:'Bed 1 — Top',    x:4,   y:0,  w:10, h:4, color:'#8B5E3C', type:'raised', depthIn:12,
     plants:['🍅 Tomatoes','🌶️ Hot Peppers'], notes:'Full sun. Stake tomatoes, cage peppers.' },
-  { id:'bed2', name:'Bed 2 — Left',   x:0,  y:4,  w:4,  h:8, color:'#6B4226', depthIn:12,
+  { id:'bed2', name:'Bed 2 — Left',   x:0,   y:6,  w:4,  h:6, color:'#6B4226', type:'raised', depthIn:12,
     plants:['🥒 Cucumbers','🌿 Basil'], notes:'Trellis on inner (yard-facing) edge for cucumbers.' },
-  { id:'bed3', name:'Bed 3 — Bottom', x:4,  y:14, w:8,  h:4, color:'#7A5230', depthIn:12,
+  { id:'bed3', name:'Bed 4 — Bottom', x:4,   y:14, w:8,  h:4, color:'#7A5230', type:'raised', depthIn:12,
     plants:['🥕 Carrots','🎃 Squash'], notes:'Squash can sprawl over the front edge.' },
-  { id:'bed4', name:'Bed 4 — Right',  x:14, y:6,  w:4,  h:6, color:'#5C3D1E', depthIn:12,
+  { id:'bed4', name:'Bed 3 — Right',  x:5.5, y:6,  w:4,  h:6, color:'#5C3D1E', type:'raised', depthIn:12,
     plants:['🍓 Strawberries','🌿 Thyme'], notes:'Strawberries return every year via runners.' },
+  { id:'pot20', name:'Pot', x:18,  y:6.5, diam:2, w:2, h:2, color:'#c1440e', type:'pot', plants:['🌼 Marigolds'], notes:'' },
+  { id:'pot22', name:'Pot', x:18.5, y:9,  diam:1, w:1, h:1, color:'#c1440e', type:'pot', plants:['🌼 Marigolds'], notes:'' },
+  { id:'pot23', name:'Pot', x:18.5, y:10.5, diam:1, w:1, h:1, color:'#c1440e', type:'pot', plants:[], notes:'' },
+  { id:'area24', name:'Ground Area', x:14, y:14, w:6, h:4, color:'#3a7d44', type:'ground',
+    plants:['🥬 Lettuce','🌱 Radishes'], notes:'' },
 ];
 
 const BED_COLORS = ['#8B5E3C','#6B4226','#7A5230','#5C3D1E','#9B6B3C','#4A3020','#A0522D'];
@@ -1020,14 +1024,19 @@ function applyGardenSize() {
 function suggestLayout() {
   if (!confirm('Reset to the suggested perimeter layout?')) return;
   beds = [
-    { id:'bed1', name:'Bed 1 — Top',    x:4,  y:0,  w:10, h:4, color:'#8B5E3C', type:'raised', depthIn:12,
+    { id:'bed1', name:'Bed 1 — Top',    x:4,   y:0,  w:10, h:4, color:'#8B5E3C', type:'raised', depthIn:12,
       plants:['🍅 Tomatoes','🌶️ Hot Peppers'], notes:'Full sun. Stake tomatoes, cage peppers.' },
-    { id:'bed2', name:'Bed 2 — Left',   x:0,  y:4,  w:4,  h:8, color:'#6B4226', type:'raised', depthIn:12,
+    { id:'bed2', name:'Bed 2 — Left',   x:0,   y:6,  w:4,  h:6, color:'#6B4226', type:'raised', depthIn:12,
       plants:['🥒 Cucumbers','🌿 Basil'], notes:'Trellis on inner (yard-facing) edge for cucumbers.' },
-    { id:'bed3', name:'Bed 3 — Bottom', x:4,  y:14, w:8,  h:4, color:'#7A5230', type:'raised', depthIn:12,
+    { id:'bed3', name:'Bed 4 — Bottom', x:4,   y:14, w:8,  h:4, color:'#7A5230', type:'raised', depthIn:12,
       plants:['🥕 Carrots','🎃 Squash'], notes:'Squash can sprawl over the front edge.' },
-    { id:'bed4', name:'Bed 4 — Right',  x:14, y:6,  w:4,  h:6, color:'#5C3D1E', type:'raised', depthIn:12,
+    { id:'bed4', name:'Bed 3 — Right',  x:5.5, y:6,  w:4,  h:6, color:'#5C3D1E', type:'raised', depthIn:12,
       plants:['🍓 Strawberries','🌿 Thyme'], notes:'Strawberries return every year via runners.' },
+    { id:'pot20', name:'Pot', x:18,   y:6.5, diam:2, w:2, h:2, color:'#c1440e', type:'pot', plants:['🌼 Marigolds'], notes:'' },
+    { id:'pot22', name:'Pot', x:18.5, y:9,   diam:1, w:1, h:1, color:'#c1440e', type:'pot', plants:['🌼 Marigolds'], notes:'' },
+    { id:'pot23', name:'Pot', x:18.5, y:10.5, diam:1, w:1, h:1, color:'#c1440e', type:'pot', plants:[], notes:'' },
+    { id:'area24', name:'Ground Area', x:14, y:14, w:6, h:4, color:'#3a7d44', type:'ground',
+      plants:['🥬 Lettuce','🌱 Radishes'], notes:'' },
   ];
   select(null); renderLists(); draw();
 }
