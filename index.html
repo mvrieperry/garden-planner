@@ -408,7 +408,13 @@
       <button class="btn btn-secondary" onclick="printPlan()">🖨️ Print Plan</button>
       <button class="btn btn-secondary" onclick="saveJSON()">💾 Save Plan (JSON)</button>
       <button class="btn btn-secondary" onclick="loadJSON()">📂 Load Plan (JSON)</button>
-      <button class="btn btn-primary" onclick="openReport()">📋 Plan Report</button>
+    </div>
+
+    <div class="section">
+      <h2>Tools</h2>
+      <button class="btn btn-primary" onclick="openReport('plant')" style="margin-bottom:4px">🌱 Plant Organizer</button>
+      <button class="btn btn-secondary" onclick="openReport('shop')" style="margin-bottom:4px">🛒 Shopping List</button>
+      <button class="btn btn-secondary" onclick="openReport('build')">🪵 Bed Builder</button>
     </div>
 
     <div class="section">
@@ -1338,12 +1344,9 @@ function loadJSON() {
 // ─── Report Modal ─────────────────────────────────────────────────────────────
 let activeTab = 'build';
 
-function openReport() {
+function openReport(tab = 'build') {
   if (!beds.length) { alert('Add at least one bed first.'); return; }
-  activeTab = 'build';
-  document.getElementById('tab-build').classList.add('active');
-  document.getElementById('tab-plant').classList.remove('active');
-  document.getElementById('reportBody').innerHTML = generateBuildHTML();
+  switchTab(tab);
   document.getElementById('reportModal').style.display = 'flex';
 }
 
@@ -2019,17 +2022,17 @@ setTimeout(function() {
         </div>
       </li>
       <li>
-        <span class="step-icon">🗺️</span>
+        <span class="step-icon">🌱</span>
         <div class="step-text">
-          <strong>Plan your layout</strong>
-          <span>Open the <em>Plant Organizer</em> tab to see a square-foot grid. Drag emojis to rearrange, or paint cells using the palette below the grid.</span>
+          <strong>Arrange plants in each bed</strong>
+          <span>Click <em>🌱 Plant Organizer</em> in the sidebar to open a square-foot grid for each bed. Drag emojis to rearrange, or paint cells using the palette below the grid.</span>
         </div>
       </li>
       <li>
         <span class="step-icon">🛒</span>
         <div class="step-text">
-          <strong>Get your shopping list</strong>
-          <span>The <em>Bed Builder</em> tab shows lumber, soil, and cost estimates for each raised bed. The <em>Shopping List</em> tab gives you a store-ready cut plan.</span>
+          <strong>Get your shopping list & build plan</strong>
+          <span>Click <em>🛒 Shopping List</em> for a store-ready materials list, or <em>🪵 Bed Builder</em> for lumber, soil volume, and cost estimates for each raised bed.</span>
         </div>
       </li>
     </ul>
