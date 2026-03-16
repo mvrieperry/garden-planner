@@ -427,6 +427,19 @@
     </div>
 
     <div class="section">
+      <h2>🏪 Local Store</h2>
+      <p style="font-size:11px;color:#888;margin-bottom:8px">Show a local garden centre or hardware store link inside your Shopping List &amp; Bed Builder.</p>
+      <div class="field">
+        <label>Store name</label>
+        <input type="text" id="localStoreName" placeholder="e.g. Ritchie Feed &amp; Seed" oninput="saveLocalStore()">
+      </div>
+      <div class="field">
+        <label>Website URL</label>
+        <input type="text" id="localStoreUrl" placeholder="https://..." oninput="saveLocalStore()">
+      </div>
+    </div>
+
+    <div class="section">
       <h2>Legend</h2>
       <div class="legend">
         <div class="legend-item">
@@ -649,6 +662,56 @@ function undoLast() {
   if (!stillExists) select(null);
   else syncPanel();
   renderLists(); draw();
+}
+
+// ─── Amazon Affiliate + Local Store ──────────────────────────────────────────
+const AMAZON_TAG = 'YOUR-TAG-20'; // ← swap in your Associates ID when ready
+
+function amazonUrl(keywords) {
+  return `https://www.amazon.com/s?k=${encodeURIComponent(keywords)}&tag=${AMAZON_TAG}`;
+}
+function amazonBadge(keywords) {
+  return `<a href="${amazonUrl(keywords)}" target="_blank" rel="noopener sponsored"
+    style="display:inline-flex;align-items:center;gap:3px;background:#FF9900;color:#111;
+    font-size:10px;font-weight:700;padding:2px 8px;border-radius:3px;
+    text-decoration:none;white-space:nowrap;vertical-align:middle;margin-left:6px">🛒 Amazon</a>`;
+}
+function whereToBuyBanner(categories) {
+  const store = getLocalStore();
+  const localBtn = store.name && store.url
+    ? `<a href="${store.url}" target="_blank" rel="noopener"
+        style="display:inline-flex;align-items:center;gap:5px;background:#2d6a30;color:#fff;
+        font-size:12px;font-weight:700;padding:6px 14px;border-radius:5px;text-decoration:none;white-space:nowrap">
+        🏪 ${store.name}</a>`
+    : `<span style="font-size:11px;color:#999;font-style:italic">Add your local store in the sidebar →</span>`;
+  const amzBtns = categories.map(([kw, label]) =>
+    `<a href="${amazonUrl(kw)}" target="_blank" rel="noopener sponsored"
+      style="display:inline-flex;align-items:center;gap:4px;background:#FF9900;color:#111;
+      font-size:12px;font-weight:700;padding:6px 14px;border-radius:5px;text-decoration:none;white-space:nowrap">
+      🛒 ${label} on Amazon</a>`
+  ).join('');
+  return `
+  <div style="background:#f8fdf8;border:1px solid #c4e0c4;border-radius:8px;padding:12px 16px;margin-bottom:18px">
+    <div style="font-size:11px;font-weight:700;color:#4a7a4b;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">🛍️ Where to buy</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">${localBtn} ${amzBtns}</div>
+  </div>`;
+}
+function getLocalStore() {
+  return {
+    name: localStorage.getItem('localStoreName') || '',
+    url:  localStorage.getItem('localStoreUrl')  || '',
+  };
+}
+function saveLocalStore() {
+  localStorage.setItem('localStoreName', (document.getElementById('localStoreName').value || '').trim());
+  localStorage.setItem('localStoreUrl',  (document.getElementById('localStoreUrl').value  || '').trim());
+}
+function loadLocalStoreInputs() {
+  const s = getLocalStore();
+  const n = document.getElementById('localStoreName');
+  const u = document.getElementById('localStoreUrl');
+  if (n) n.value = s.name;
+  if (u) u.value = s.url;
 }
 
 // ─── Data ────────────────────────────────────────────────────────────────────
@@ -1438,27 +1501,27 @@ function generateBuildHTML() {
           <table class="materials-table">
             <tr><th>Item</th><th>Qty</th><th>Size / Notes</th><th class="cost">Est. Cost</th></tr>
             <tr>
-              <td>${m.boardSize} Side Board</td><td>${m.runs * 2}</td>
+              <td>${m.boardSize} Side Board ${amazonBadge(`cedar ${m.boardSize} board lumber`)}</td><td>${m.runs * 2}</td>
               <td>${m.sideLen} ft × ${m.runs} run${m.runs > 1 ? 's' : ''} (for ${bed.h} ft sides${m.sideLen > bed.h ? ` — ${(m.sideLen - bed.h).toFixed(1)} ft waste each` : ''})</td>
               <td class="cost">$${m.sideCost * 2 * m.runs}</td>
             </tr>
             <tr>
-              <td>${m.boardSize} End Board</td><td>${m.runs * 2}</td>
+              <td>${m.boardSize} End Board ${amazonBadge(`cedar ${m.boardSize} board lumber`)}</td><td>${m.runs * 2}</td>
               <td>${m.endLen} ft × ${m.runs} run${m.runs > 1 ? 's' : ''} (for ${bed.w} ft ends${m.endLen > bed.w ? ` — ${(m.endLen - bed.w).toFixed(1)} ft waste each` : ''})</td>
               <td class="cost">$${m.endCost * 2 * m.runs}</td>
             </tr>
             <tr>
-              <td>4×4 Corner Post</td><td>4</td>
+              <td>4×4 Corner Post ${amazonBadge('cedar 4x4 post raised garden bed')}</td><td>4</td>
               <td>Cut to 10 in from a 4×4×8 post</td>
               <td class="cost">$${m.postCost}</td>
             </tr>
             <tr>
-              <td>3 in Deck Screws</td><td>1 box</td>
+              <td>3 in Deck Screws ${amazonBadge('galvanized 3 inch deck screws')}</td><td>1 box</td>
               <td>Galvanized, 1 lb box (~100 screws)</td>
               <td class="cost">$${m.screwCost}</td>
             </tr>
             <tr class="soil-row">
-              <td>Garden Soil / Mix</td><td>${m.soilCuYd} yd³</td>
+              <td>Garden Soil / Mix ${amazonBadge('raised bed garden soil mix')}</td><td>${m.soilCuYd} yd³</td>
               <td>${m.soilCuFt} cu ft needed (bulk or ~${Math.ceil(m.soilCuFt / 2)} bags × 2 cu ft)</td>
               <td class="cost">≈$${m.soilCost}</td>
             </tr>
@@ -1511,7 +1574,13 @@ function generateBuildHTML() {
     ${groundNote}
   </div>`;
 
-  return summary + bedSections;
+  const buildBanner = whereToBuyBanner([
+    ['cedar raised bed lumber boards', 'Lumber'],
+    ['4x4 cedar post raised garden bed', 'Posts'],
+    ['galvanized 3 inch deck screws', 'Screws'],
+    ['raised bed garden soil mix', 'Soil'],
+  ]);
+  return buildBanner + summary + bedSections;
 }
 
 // ─── Interactive Plant Grid ────────────────────────────────────────────────────
@@ -1864,7 +1933,14 @@ function generateShoppingHTML() {
       </div>`
     : '';
 
-  return `
+  const shopBanner = whereToBuyBanner([
+    ['cedar raised bed lumber boards', 'Lumber'],
+    ['4x4 cedar post raised garden bed', 'Posts'],
+    ['galvanized 3 inch deck screws', 'Screws'],
+    ['raised bed garden soil mix', 'Soil'],
+  ]);
+
+  return shopBanner + `
   <div class="report-summary">
     <h3>🛒 Total Shopping List — ${beds.length} Bed${beds.length > 1 ? 's' : ''}</h3>
     <div class="summary-grid">
@@ -1932,12 +2008,12 @@ function generateShoppingHTML() {
       <table class="materials-table">
         <tr><th>Item</th><th>Qty</th><th>Notes</th><th class="cost">Cost</th></tr>
         <tr>
-          <td>4×4×8 Post</td><td>${postsNeeded}</td>
+          <td>4×4×8 Post ${amazonBadge('cedar 4x4 post raised garden bed')}</td><td>${postsNeeded}</td>
           <td>Each post → ${postsPerBuy} corner posts (${postLenIn} in). Covers ${postsNeeded * postsPerBuy} corners total.</td>
           <td class="cost">$${postCost}</td>
         </tr>
         <tr>
-          <td>3 in Deck Screws</td><td>${screwBoxes} box${screwBoxes > 1 ? 'es' : ''}</td>
+          <td>3 in Deck Screws ${amazonBadge('galvanized 3 inch deck screws')}</td><td>${screwBoxes} box${screwBoxes > 1 ? 'es' : ''}</td>
           <td>Galvanized, 1 lb (~100 screws). ~${totalRuns * 16} screws needed total.</td>
           <td class="cost">$${screwCost}</td>
         </tr>
@@ -1964,7 +2040,7 @@ function generateShoppingHTML() {
           <td><strong>${Math.ceil(totalSoilCuFt / 2)} bags (2 cu ft each)</strong></td>
         </tr>
       </table>
-      <p style="font-size:11px;color:#888">💡 Bulk delivery (≥1 yd³) is usually cheaper than bags. Ask your local nursery — typically $35–$60/yd³ delivered. ≈$${soilCost} estimated.</p>
+      <p style="font-size:11px;color:#888">💡 Bulk delivery (≥1 yd³) is usually cheaper than bags. Ask your local nursery — typically $35–$60/yd³ delivered. ≈$${soilCost} estimated. ${amazonBadge('raised bed garden soil mix')}</p>
     </div>
   </div>
 
@@ -1983,6 +2059,7 @@ function generateShoppingHTML() {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 initCanvas();
 renderLists();
+setTimeout(loadLocalStoreInputs, 0); // restore saved store name/URL after DOM is ready
 
 // ─── Tutorial modal ────────────────────────────────────────────────────────────
 function showTutorial() {
