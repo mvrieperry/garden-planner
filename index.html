@@ -32,9 +32,46 @@
       padding: 14px 16px;
       background: #2d6a30;
       color: white;
+      display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
     }
     .sidebar-header h1 { font-size: 15px; font-weight: 700; }
     .sidebar-header p { font-size: 11px; opacity: 0.8; margin-top: 2px; }
+    .help-btn {
+      flex-shrink: 0; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4);
+      color: #fff; border-radius: 50%; width: 24px; height: 24px; font-size: 13px; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      line-height: 1; margin-top: 1px;
+    }
+    .help-btn:hover { background: rgba(255,255,255,0.35); }
+
+    /* ── Welcome modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999; padding: 20px;
+    }
+    .modal-overlay.hidden { display: none; }
+    .modal-card {
+      background: #fff; border-radius: 14px; padding: 28px 28px 22px;
+      max-width: 480px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    }
+    .modal-card h2 { font-size: 20px; color: #2d6a30; margin-bottom: 4px; }
+    .modal-card .modal-sub { font-size: 13px; color: #666; margin-bottom: 20px; }
+    .tutorial-steps { list-style: none; display: flex; flex-direction: column; gap: 12px; margin-bottom: 22px; }
+    .tutorial-steps li {
+      display: flex; align-items: flex-start; gap: 12px;
+      background: #f4faf4; border-radius: 8px; padding: 10px 12px;
+    }
+    .tutorial-steps li .step-icon { font-size: 22px; flex-shrink: 0; line-height: 1.3; }
+    .tutorial-steps li .step-text strong { display: block; font-size: 13px; color: #2d3a2e; margin-bottom: 2px; }
+    .tutorial-steps li .step-text span { font-size: 12px; color: #666; line-height: 1.4; }
+    .modal-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .modal-footer label { font-size: 12px; color: #888; display: flex; align-items: center; gap: 5px; cursor: pointer; }
+    .modal-footer .btn-got-it {
+      background: #2d6a30; color: #fff; border: none; border-radius: 8px;
+      padding: 9px 22px; font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .modal-footer .btn-got-it:hover { background: #245526; }
 
     .section {
       padding: 12px 14px;
@@ -328,8 +365,11 @@
   <!-- ── Sidebar ── -->
   <div class="sidebar">
     <div class="sidebar-header">
-      <h1>🌱 Garden Planner - Layouts and Bed builder 🌱</h1>
-      <p>Drag beds · Click to edit · Double-click to rename</p>
+      <div>
+        <h1>🌱 Garden Planner</h1>
+        <p>Drag beds · Click to edit · Double-click to rename</p>
+      </div>
+      <button class="help-btn" onclick="showTutorial()" title="Help / Getting started">?</button>
     </div>
 
     <div class="section">
@@ -1782,6 +1822,74 @@ function generateShoppingHTML() {
 // ─── Init ─────────────────────────────────────────────────────────────────────
 initCanvas();
 renderLists();
+
+// ─── Tutorial modal ────────────────────────────────────────────────────────────
+function showTutorial() {
+  document.getElementById('tutorialModal').classList.remove('hidden');
+}
+function closeTutorial() {
+  const modal = document.getElementById('tutorialModal');
+  modal.classList.add('hidden');
+  if (document.getElementById('dontShowAgain').checked) {
+    localStorage.setItem('gardenPlannerTutorialSeen', '1');
+  }
+}
+if (!localStorage.getItem('gardenPlannerTutorialSeen')) {
+  showTutorial();
+}
 </script>
+
+<!-- Welcome / tutorial modal -->
+<div class="modal-overlay hidden" id="tutorialModal">
+  <div class="modal-card">
+    <h2>🌱 Welcome to Garden Planner!</h2>
+    <p class="modal-sub">Here's how to plan your garden in 5 easy steps:</p>
+    <ul class="tutorial-steps">
+      <li>
+        <span class="step-icon">📐</span>
+        <div class="step-text">
+          <strong>Set your garden size</strong>
+          <span>Enter the width and length of your outdoor space in the top-left panel, then click <em>Apply Size</em>.</span>
+        </div>
+      </li>
+      <li>
+        <span class="step-icon">➕</span>
+        <div class="step-text">
+          <strong>Add beds, pots, or ground areas</strong>
+          <span>Use the sidebar buttons to add a raised bed, an in-ground planting area, or a pot. Drag them around the canvas to position them.</span>
+        </div>
+      </li>
+      <li>
+        <span class="step-icon">🌿</span>
+        <div class="step-text">
+          <strong>Assign plants</strong>
+          <span>Click a bed or pot to select it, then pick plants from the dropdown in the right panel. The planner will flag companion plants and conflicts automatically.</span>
+        </div>
+      </li>
+      <li>
+        <span class="step-icon">🗺️</span>
+        <div class="step-text">
+          <strong>Plan your layout</strong>
+          <span>Open the <em>Plant Organizer</em> tab to see a square-foot grid. Drag emojis to rearrange, or paint cells using the palette below the grid.</span>
+        </div>
+      </li>
+      <li>
+        <span class="step-icon">🛒</span>
+        <div class="step-text">
+          <strong>Get your shopping list</strong>
+          <span>The <em>Bed Builder</em> tab shows lumber, soil, and cost estimates for each raised bed. The <em>Shopping List</em> tab gives you a store-ready cut plan.</span>
+        </div>
+      </li>
+    </ul>
+    <div class="modal-footer">
+      <label>
+        <input type="checkbox" id="dontShowAgain">
+        Don't show this again
+      </label>
+      <button class="btn-got-it" onclick="closeTutorial()">Got it! 🌱</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
