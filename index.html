@@ -38,6 +38,13 @@
       transition: width 0.22s ease;
     }
     .sidebar.collapsed { width: 0; overflow: hidden; border-right: none; }
+    .sidebar-expand-tab {
+      display: none; position: fixed; left: 0; top: 50%; transform: translateY(-50%);
+      background: #234f25; color: #fff; border: none; border-radius: 0 6px 6px 0;
+      width: 18px; height: 48px; cursor: pointer; font-size: 15px; z-index: 150;
+      align-items: center; justify-content: center; padding: 0;
+    }
+    .sidebar-expand-tab:hover { background: #2d6a30; }
 
     .sidebar-toggle {
       flex-shrink: 0;
@@ -408,6 +415,7 @@
       .sidebar.open { transform: translateX(0); }
       .sidebar.collapsed { transform: translateX(-100%); width: 260px !important; }
       .sidebar-toggle { display: none; }
+      .sidebar-expand-tab { display: none !important; }
 
       /* Backdrop */
       .sidebar-backdrop {
@@ -557,6 +565,9 @@
       <button class="btn btn-sm btn-secondary" onclick="duplicateSelected()" title="Duplicate (makes a copy offset by 1 ft)">📋 Duplicate</button>
       <button class="btn btn-sm btn-danger" onclick="deleteSelected()">🗑 Remove</button>
     </div>
+    <div id="organizerRow" style="display:none;padding:8px 14px;border-bottom:1px solid #ddeadd">
+      <button class="btn btn-primary" style="width:100%;font-size:14px;padding:9px" onclick="openReport('plant')">🌱 Open Plant Organizer</button>
+    </div>
 
     <div class="panel-section">
       <h3>Properties</h3>
@@ -606,10 +617,7 @@
     </div>
 
     <div class="panel-section" id="plantsSection">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <h3 style="margin:0">Plants</h3>
-        <button class="btn btn-sm btn-primary" onclick="openReport('plant')" title="Arrange plants in the square-foot grid">🌱 Organizer</button>
-      </div>
+      <h3>Plants</h3>
       <div id="plantTags"></div>
       <div class="add-plant-row">
         <select id="plantSelect">
@@ -1327,6 +1335,7 @@ function syncPanel() {
   document.getElementById('sizeRow').style.display     = isPot ? 'none' : '';
   document.getElementById('potSection').style.display  = isPot ? '' : 'none';
   document.getElementById('plantsSection').style.display = isBed ? '' : 'none';
+  document.getElementById('organizerRow').style.display  = isBed ? '' : 'none';
   document.getElementById('notesSection').style.display  = isBed ? '' : 'none';
   document.getElementById('depthSection').style.display  = (isBed && !isGround && !isPot) ? '' : 'none';
 
@@ -1440,7 +1449,10 @@ function addObstacle() {
 }
 
 function toggleSidebar() {
-  document.querySelector('.sidebar').classList.toggle('collapsed');
+  const s = document.querySelector('.sidebar');
+  s.classList.toggle('collapsed');
+  document.getElementById('sidebarExpandTab').style.display =
+    s.classList.contains('collapsed') ? 'flex' : 'none';
 }
 function openSidebar() {
   document.querySelector('.sidebar').classList.add('open');
@@ -2662,5 +2674,6 @@ setTimeout(function() {
 </div>
 
 <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+<button class="sidebar-expand-tab" id="sidebarExpandTab" onclick="toggleSidebar()" title="Expand sidebar">›</button>
 </body>
 </html>
