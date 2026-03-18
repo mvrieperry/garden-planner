@@ -299,7 +299,7 @@
     }
     .report-bed-header h3 { font-size: 14px; font-weight: 700; }
     .report-bed-header span { font-size: 12px; opacity: 0.85; }
-    .report-bed-body { padding: 14px 16px; }
+    .report-bed-body { padding: 14px 16px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
     .report-section { margin-bottom: 14px; }
     .report-section h4 {
@@ -415,6 +415,13 @@
     /* ── Mobile layout ── */
     @media (max-width: 680px) {
       body { overflow: hidden; }
+
+      /* Report modal — tighter padding so tables have more room */
+      .modal-overlay { padding: 8px; }
+      .modal-card { max-height: calc(100dvh - 16px); }
+      .modal-body { padding: 12px 10px; }
+      .report-bed-body { padding: 10px 8px; }
+      .report-bed-header { flex-wrap: wrap; gap: 2px; }
 
       /* Sidebar becomes a fixed left drawer */
       .sidebar {
