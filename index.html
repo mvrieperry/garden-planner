@@ -1725,6 +1725,23 @@ const PLANT_DATA = {
   '🍃 Cannabis (Photoperiod)': { emoji:'🍃', sqft:9,  spacing:48, depthIn:18, sun:'Full', water:'High',   trellis:false, notes:'Full-size outdoor plant — can reach 6+ ft and needs lots of space. Flowers triggered by shorter days in late summer. Plant after last frost. Rich, well-draining soil.', companions:['🌼 Marigolds','🌿 Basil','🌸 Nasturtiums'], avoid:['🍅 Tomatoes'] },
 };
 
+// Reverse lookup: emoji character → sqft (used for grid migration)
+const EMOJI_SQFT = {};
+Object.values(PLANT_DATA).forEach(pd => { EMOJI_SQFT[pd.emoji] = pd.sqft; });
+
+// Returns true if a saved plantGrid has old-format cells (plain strings or wrong spans)
+function gridNeedsMigration(bed) {
+  if (!bed.plantGrid) return false;
+  return bed.plantGrid.some(row => row.some(cell => {
+    if (!cell || cell.occupied) return false;
+    if (typeof cell === 'string') return true; // old string-only format
+    const sqft = EMOJI_SQFT[cell.emoji];
+    if (!sqft) return false;
+    const { rowSpan, colSpan } = getPlantSpan(sqft);
+    return (cell.rowSpan || 1) !== rowSpan || (cell.colSpan || 1) !== colSpan;
+  }));
+}
+
 // ─── Save / Load JSON ─────────────────────────────────────────────────────────
 function saveJSON() {
   const plan = {
@@ -1757,7 +1774,15 @@ function loadJSON() {
           document.getElementById('gardenWidth').value  = garden.width;
           document.getElementById('gardenHeight').value = garden.height;
         }
-        if (plan.beds)      beds      = plan.beds;
+        if (plan.beds) {
+          beds = plan.beds;
+          beds.forEach(b => {
+            if (gridNeedsMigration(b)) {
+              b.plantGrid = null;
+              if (b.plants?.length) initPlantGrid(b);
+            }
+          });
+        }
         if (plan.obstacles) obstacles = plan.obstacles;
         select(null); renderLists(); initCanvas();
         alert('Plan loaded successfully!');
