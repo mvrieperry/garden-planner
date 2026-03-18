@@ -195,6 +195,10 @@
       display: flex; align-items: center; justify-content: space-between;
     }
     .panel-header h2 { font-size: 13px; font-weight: 700; }
+    .panel-actions {
+      display: flex; gap: 6px; padding: 8px 14px;
+      border-bottom: 1px solid #ddeadd;
+    }
 
     .panel-section { padding: 10px 14px; border-bottom: 1px solid #ddeadd; }
     .panel-section h3 {
@@ -547,11 +551,11 @@
   <div class="right-panel" id="rightPanel">
     <div class="panel-header">
       <h2 id="panelTitle">Details</h2>
-      <div style="display:flex;gap:6px">
-        <button class="btn btn-sm btn-secondary" onclick="select(null)" title="Close panel">✕ Close</button>
-        <button class="btn btn-sm btn-secondary" onclick="duplicateSelected()" title="Duplicate (makes a copy offset by 1 ft)">📋 Duplicate</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteSelected()">🗑 Remove</button>
-      </div>
+      <button class="btn btn-sm btn-secondary" onclick="select(null)" title="Close panel" style="padding:4px 8px;font-size:13px;line-height:1">✕</button>
+    </div>
+    <div class="panel-actions">
+      <button class="btn btn-sm btn-secondary" onclick="duplicateSelected()" title="Duplicate (makes a copy offset by 1 ft)">📋 Duplicate</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteSelected()">🗑 Remove</button>
     </div>
 
     <div class="panel-section">
@@ -602,7 +606,10 @@
     </div>
 
     <div class="panel-section" id="plantsSection">
-      <h3>Plants</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <h3 style="margin:0">Plants</h3>
+        <button class="btn btn-sm btn-primary" onclick="openReport('plant')" title="Arrange plants in the square-foot grid">🌱 Organizer</button>
+      </div>
       <div id="plantTags"></div>
       <div class="add-plant-row">
         <select id="plantSelect">
@@ -2269,6 +2276,7 @@ function generatePlantsHTML() {
         ${alertsHTML}${companionsHTML}
         <div class="report-section">
           <h4>🗺 Square-Foot Layout (drag to rearrange)</h4>
+          <p style="font-size:11px;color:#aaa;margin:-2px 0 8px">Drag palette emojis onto cells to paint. Double-click (or double-tap) a plant to remove it.</p>
           ${renderInteractiveGrid(bed)}
         </div>
         <div class="report-section">
