@@ -318,12 +318,12 @@
     /* ── Interactive Plant Grid ── */
     .igrid {
       display: grid; gap: 3px;
+      grid-auto-rows: 38px;
       background: #1a3a1c; border-radius: 8px;
       padding: 10px; margin-bottom: 6px;
       width: fit-content; max-width: 100%;
     }
     .igrid-cell {
-      width: 38px; height: 38px;
       display: flex; align-items: center; justify-content: center;
       font-size: 20px; border-radius: 4px;
       background: rgba(255,255,255,0.07);
@@ -1594,6 +1594,52 @@ function generateBuildHTML() {
 // ─── Interactive Plant Grid ────────────────────────────────────────────────────
 let igridDragSrc = null;
 
+// Returns grid span dimensions for a plant. Plants ≤1 sqft stay 1×1;
+// larger plants snap to the next square size (e.g. 4sqft → 2×2, 9sqft → 3×3).
+function getPlantSpan(sqft) {
+  if (sqft <= 1) return { rowSpan: 1, colSpan: 1 };
+  const side = Math.ceil(Math.sqrt(sqft));
+  return { rowSpan: side, colSpan: side };
+}
+
+function canPlaceSpan(cells, r, c, rowSpan, colSpan, L, W) {
+  if (r + rowSpan > L || c + colSpan > W) return false;
+  for (let dr = 0; dr < rowSpan; dr++)
+    for (let dc = 0; dc < colSpan; dc++)
+      if (cells[r + dr][c + dc] !== null) return false;
+  return true;
+}
+
+function placeSpanInGrid(cells, r, c, rowSpan, colSpan, emoji) {
+  cells[r][c] = { emoji, rowSpan, colSpan };
+  for (let dr = 0; dr < rowSpan; dr++)
+    for (let dc = 0; dc < colSpan; dc++)
+      if (!(dr === 0 && dc === 0)) cells[r + dr][c + dc] = { occupied: true };
+}
+
+function clearSpanFromGrid(cells, r, c) {
+  const cell = cells[r][c];
+  if (cell === null) return;
+  if (cell.occupied) {
+    // Trace back to primary cell
+    for (let pr = 0; pr <= r; pr++)
+      for (let pc = 0; pc < cells[pr].length; pc++) {
+        const p = cells[pr][pc];
+        if (p && !p.occupied && p.rowSpan && p.colSpan &&
+            pr + p.rowSpan > r && pc + p.colSpan > c) {
+          clearSpanFromGrid(cells, pr, pc); return;
+        }
+      }
+    cells[r][c] = null; return;
+  }
+  const rowSpan = cell.rowSpan || 1;
+  const colSpan = cell.colSpan || 1;
+  for (let dr = 0; dr < rowSpan; dr++)
+    for (let dc = 0; dc < colSpan; dc++)
+      if (cells[r + dr] && c + dc < cells[r + dr].length)
+        cells[r + dr][c + dc] = null;
+}
+
 function initPlantGrid(bed) {
   if (bed.plantGrid) return;
   const W = Math.max(1, Math.floor(bed.w));
@@ -1603,23 +1649,21 @@ function initPlantGrid(bed) {
 
   const plants = (bed.plants || []).filter(p => PLANT_DATA[p]);
   if (plants.length) {
-    // Build a flat list of emojis: each plant gets an even share of cells
-    const flat = [];
     const sharePerPlant = Math.max(1, Math.round(totalCells / plants.length));
     plants.forEach(pName => {
       const pd = PLANT_DATA[pName];
-      const cellsEach = Math.max(1, Math.ceil(pd.sqft));
-      const instances = Math.max(1, Math.round(sharePerPlant / cellsEach));
-      for (let i = 0; i < instances * cellsEach; i++) flat.push(pd.emoji);
-    });
-    // Fill grid left-to-right, top-to-bottom
-    let idx = 0;
-    outer: for (let r = 0; r < L; r++) {
-      for (let c = 0; c < W; c++) {
-        if (idx >= flat.length) break outer;
-        cells[r][c] = flat[idx++];
+      const { rowSpan, colSpan } = getPlantSpan(pd.sqft);
+      const spanArea = rowSpan * colSpan;
+      const instances = Math.max(1, Math.round(sharePerPlant / spanArea));
+      for (let i = 0; i < instances; i++) {
+        outer: for (let r = 0; r < L; r++)
+          for (let c = 0; c < W; c++)
+            if (canPlaceSpan(cells, r, c, rowSpan, colSpan, L, W)) {
+              placeSpanInGrid(cells, r, c, rowSpan, colSpan, pd.emoji);
+              break outer;
+            }
       }
-    }
+    });
   }
   bed.plantGrid = cells;
 }
@@ -1633,15 +1677,28 @@ function resetPlantGrid(bedId) {
 }
 
 function igridCellHTML(cell, bedId, ri, ci) {
-  const hasPlant = cell !== null;
-  return `<div class="igrid-cell ${hasPlant ? 'has-plant' : 'empty'}"
-    draggable="${hasPlant ? 'true' : 'false'}"
+  // Occupied cells are invisible — the spanning parent covers their space in the grid
+  if (cell && cell.occupied) return '';
+
+  // Support both legacy string cells and new object format
+  const emoji   = cell === null ? null : (typeof cell === 'string' ? cell : cell.emoji);
+  const rowSpan = (cell && cell.rowSpan) || 1;
+  const colSpan = (cell && cell.colSpan) || 1;
+  const isSpanning = rowSpan > 1 || colSpan > 1;
+
+  const spanStyle = isSpanning ? `grid-column:span ${colSpan};grid-row:span ${rowSpan};` : '';
+  const sizeStyle = isSpanning ? `font-size:${Math.min(48, 20 * Math.min(rowSpan, colSpan))}px;border-radius:8px;` : '';
+
+  return `<div class="igrid-cell ${emoji ? 'has-plant' : 'empty'}"
+    draggable="${emoji ? 'true' : 'false'}"
     data-bed="${bedId}" data-row="${ri}" data-col="${ci}"
+    data-row-span="${rowSpan}" data-col-span="${colSpan}"
+    style="${spanStyle}${sizeStyle}"
     ondragstart="igridDragStart(event)"
     ondragover="igridDragOver(event)"
     ondragleave="igridDragLeave(event)"
     ondrop="igridDrop(event)"
-    ondragend="igridDragEnd(event)">${cell !== null ? cell : '·'}</div>`;
+    ondragend="igridDragEnd(event)">${emoji || '·'}</div>`;
 }
 
 function renderInteractiveGrid(bed) {
@@ -1658,13 +1715,16 @@ function renderInteractiveGrid(bed) {
   // Plant palette — drag from here to paint individual cells
   const paletteItems = (bed.plants || []).map(pName => {
     const pd = PLANT_DATA[pName]; if (!pd) return '';
+    const { rowSpan, colSpan } = getPlantSpan(pd.sqft);
     return `<div class="igrid-palette-item" draggable="true"
       data-bed="${bed.id}" data-emoji="${pd.emoji}" data-palette="true"
+      data-row-span="${rowSpan}" data-col-span="${colSpan}"
       ondragstart="igridDragStart(event)" ondragend="igridDragEnd(event)"
-      title="${pName}">${pd.emoji}</div>`;
+      title="${pName} (${pd.sqft >= 1 ? pd.sqft + ' sq ft' : Math.round(1/pd.sqft) + '/sq ft'})">${pd.emoji}</div>`;
   }).join('') +
   `<div class="igrid-palette-item clear-cell" draggable="true"
     data-bed="${bed.id}" data-emoji="" data-palette="true"
+    data-row-span="1" data-col-span="1"
     ondragstart="igridDragStart(event)" ondragend="igridDragEnd(event)"
     title="Erase cell">✕</div>`;
 
@@ -1694,10 +1754,12 @@ function rerenderIGrid(bedId) {
 
 function igridDragStart(e) {
   const el = e.currentTarget;
+  const rowSpan = +el.dataset.rowSpan || 1;
+  const colSpan = +el.dataset.colSpan || 1;
   if (el.dataset.palette === 'true') {
-    igridDragSrc = { bedId: el.dataset.bed, emoji: el.dataset.emoji, fromPalette: true };
+    igridDragSrc = { bedId: el.dataset.bed, emoji: el.dataset.emoji, fromPalette: true, rowSpan, colSpan };
   } else {
-    igridDragSrc = { bedId: el.dataset.bed, row: +el.dataset.row, col: +el.dataset.col, fromPalette: false };
+    igridDragSrc = { bedId: el.dataset.bed, row: +el.dataset.row, col: +el.dataset.col, fromPalette: false, rowSpan, colSpan };
   }
   e.dataTransfer.effectAllowed = 'move';
   el.classList.add('dragging');
@@ -1721,22 +1783,37 @@ function igridDrop(e) {
   e.currentTarget.classList.remove('drag-over');
   if (!igridDragSrc) return;
   const dstEl = e.currentTarget;
-  // Only accept drops on grid cells (not on palette items)
   if (!dstEl.dataset.row) return;
-  const dst = { bedId: dstEl.dataset.bed, row: +dstEl.dataset.row, col: +dstEl.dataset.col };
-  if (igridDragSrc.bedId !== dst.bedId) return;
+  const dst = { row: +dstEl.dataset.row, col: +dstEl.dataset.col };
+  if (igridDragSrc.bedId !== dstEl.dataset.bed) return;
   const bed = beds.find(b => b.id === igridDragSrc.bedId);
   if (!bed?.plantGrid) return;
+  const L = bed.plantGrid.length;
+  const W = bed.plantGrid[0]?.length || 0;
 
   if (igridDragSrc.fromPalette) {
-    // Paint: set cell to palette emoji (empty string = erase)
-    bed.plantGrid[dst.row][dst.col] = igridDragSrc.emoji || null;
+    const emoji = igridDragSrc.emoji || null;
+    clearSpanFromGrid(bed.plantGrid, dst.row, dst.col);
+    if (emoji) {
+      const { rowSpan, colSpan } = igridDragSrc;
+      if (canPlaceSpan(bed.plantGrid, dst.row, dst.col, rowSpan, colSpan, L, W))
+        placeSpanInGrid(bed.plantGrid, dst.row, dst.col, rowSpan, colSpan, emoji);
+      else
+        bed.plantGrid[dst.row][dst.col] = { emoji, rowSpan: 1, colSpan: 1 };
+    }
   } else {
-    // Swap two grid cells
     if (igridDragSrc.row === dst.row && igridDragSrc.col === dst.col) return;
-    const tmp = bed.plantGrid[igridDragSrc.row][igridDragSrc.col];
-    bed.plantGrid[igridDragSrc.row][igridDragSrc.col] = bed.plantGrid[dst.row][dst.col];
-    bed.plantGrid[dst.row][dst.col] = tmp;
+    const srcCell = bed.plantGrid[igridDragSrc.row][igridDragSrc.col];
+    if (!srcCell || srcCell.occupied) return;
+    const srcEmoji  = typeof srcCell === 'string' ? srcCell : srcCell.emoji;
+    const srcRSpan  = (typeof srcCell === 'object' && srcCell.rowSpan) || 1;
+    const srcCSpan  = (typeof srcCell === 'object' && srcCell.colSpan) || 1;
+    clearSpanFromGrid(bed.plantGrid, igridDragSrc.row, igridDragSrc.col);
+    clearSpanFromGrid(bed.plantGrid, dst.row, dst.col);
+    if (canPlaceSpan(bed.plantGrid, dst.row, dst.col, srcRSpan, srcCSpan, L, W))
+      placeSpanInGrid(bed.plantGrid, dst.row, dst.col, srcRSpan, srcCSpan, srcEmoji);
+    else if (bed.plantGrid[dst.row][dst.col] === null)
+      bed.plantGrid[dst.row][dst.col] = { emoji: srcEmoji, rowSpan: 1, colSpan: 1 };
   }
   igridDragSrc = null;
   rerenderIGrid(bed.id);
