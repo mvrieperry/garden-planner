@@ -1038,26 +1038,55 @@ function drawBed(b) {
     ctx.globalAlpha = 1;
   }
 
+  // Plant emojis from grid — draw first so name label sits on top
+  if (b.plantGrid) {
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    b.plantGrid.forEach((row, ri) => {
+      row.forEach((cell, ci) => {
+        if (!cell || cell.occupied) return;
+        const emoji = typeof cell === 'string' ? cell : cell.emoji;
+        if (!emoji) return;
+        const rSpan = cell.rowSpan || 1;
+        const cSpan = cell.colSpan || 1;
+        const ex = x + ft(ci) + ft(cSpan) / 2;
+        const ey = y + ft(ri) + ft(rSpan) / 2;
+        const fs = clamp(10, Math.round(SCALE * Math.min(rSpan, cSpan) * 0.58), 36);
+        ctx.font = `${fs}px sans-serif`;
+        ctx.globalAlpha = 0.92;
+        ctx.fillText(emoji, ex, ey);
+      });
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  // Name label backdrop strip
+  const hasGrid = b.plantGrid && b.plants && b.plants.length;
+  if (hasGrid) {
+    ctx.fillStyle = 'rgba(0,0,0,0.32)';
+    ctx.fillRect(x, y, w, 24);
+  }
+
   // Bed name
   ctx.fillStyle = '#fff';
   ctx.font = `bold ${clamp(10, 13, w / 5)}px sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText(b.name, x + w/2, y + 7);
+  ctx.fillText(b.name, x + w/2, y + (hasGrid ? 4 : 7));
 
-  // Sub-label: "in-ground" for ground areas, dimensions for raised beds
-  ctx.font = `${clamp(9, 11, w/6)}px sans-serif`;
-  ctx.globalAlpha = 0.75;
-  ctx.fillText(isGround ? 'in-ground' : isPot ? `${b.diam*12}"` : `${b.w} × ${b.h} ft`, x + w/2, y + 22);
-  ctx.globalAlpha = 1;
-
-  // Plants
-  if (b.plants && b.plants.length && h > 70) {
+  // Sub-label (dimensions / type) — only when no grid emojis filling the bed
+  if (!hasGrid) {
     ctx.font = `${clamp(9, 11, w/6)}px sans-serif`;
-    b.plants.slice(0, 4).forEach((p, i) => {
-      ctx.globalAlpha = 0.88;
-      ctx.fillText(p, x + w/2, y + 38 + i * 14);
-    });
+    ctx.globalAlpha = 0.75;
+    ctx.fillText(isGround ? 'in-ground' : `${b.w} × ${b.h} ft`, x + w/2, y + 22);
     ctx.globalAlpha = 1;
+    // Plant name fallback (before organizer is opened)
+    if (b.plants && b.plants.length && h > 70) {
+      ctx.font = `${clamp(9, 11, w/6)}px sans-serif`;
+      b.plants.slice(0, 4).forEach((p, i) => {
+        ctx.globalAlpha = 0.88;
+        ctx.fillText(p, x + w/2, y + 38 + i * 14);
+      });
+      ctx.globalAlpha = 1;
+    }
   }
 
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
@@ -1391,7 +1420,13 @@ function addPlant() {
     }
   }
 
-  if (!bed.plants.includes(p)) { saveHistory(); bed.plants.push(p); renderPlantTags(bed); draw(); }
+  if (!bed.plants.includes(p)) {
+    saveHistory();
+    bed.plants.push(p);
+    bed.plantGrid = null; // reset so initPlantGrid rebuilds with new plant included
+    initPlantGrid(bed);
+    renderPlantTags(bed); draw();
+  }
   sel.value = '';
 }
 
@@ -1407,6 +1442,8 @@ function removePlant(plant) {
   const bed = beds.find(b => b.id === selectedId); if (!bed) return;
   saveHistory();
   bed.plants = bed.plants.filter(p => p !== plant);
+  bed.plantGrid = null;
+  if (bed.plants.length) initPlantGrid(bed);
   renderPlantTags(bed); draw();
 }
 
