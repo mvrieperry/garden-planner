@@ -159,17 +159,24 @@
       background: #f0f8f0; border: 1px solid #c8e0c8;
       border-radius: 4px; padding: 3px 8px;
     }
-    .snap-toggle { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #4a6b4b; margin-left: auto; }
+    .zoom-controls {
+      display: flex; align-items: center; gap: 2px; margin-left: auto;
+    }
+    .zoom-controls button {
+      background: #f0f4f0; border: 1px solid #c6d9c6; color: #2d3a2e;
+      width: 28px; height: 28px; border-radius: 4px; font-size: 15px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      line-height: 1;
+    }
+    .zoom-controls button:hover { background: #e0eee0; }
+    .snap-toggle { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #4a6b4b; }
 
     .canvas-area {
-      flex: 1; overflow: auto; padding: 20px;
-      display: flex; justify-content: center; align-items: flex-start;
+      flex: 1; overflow: hidden; position: relative;
     }
 
     #gardenCanvas {
-      border: 2px solid #2d6a30; border-radius: 3px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-      display: block;
+      display: block; width: 100%; height: 100%;
     }
 
     /* ── Right Panel ── */
@@ -407,7 +414,7 @@
       /* Show ☰ menu button in toolbar */
       .menu-btn { display: flex !important; }
       .toolbar-hint { display: none; }
-      .canvas-area { padding: 6px; }
+      .canvas-area { padding: 0; }
 
       /* Right panel slides up from bottom */
       .right-panel {
@@ -521,6 +528,11 @@
     <div class="toolbar">
       <button class="btn btn-secondary menu-btn" onclick="openSidebar()" title="Menu">☰ Menu</button>
       <span class="toolbar-hint">🖱️ Drag to move &nbsp;|&nbsp; Click to select &nbsp;|&nbsp; Double-click to rename &nbsp;|&nbsp; Edit size/plants in the right panel</span>
+      <div class="zoom-controls">
+        <button onclick="adjustZoom(1.2)" title="Zoom in">＋</button>
+        <button onclick="fitView();draw()" title="Fit to screen">⤢</button>
+        <button onclick="adjustZoom(1/1.2)" title="Zoom out">－</button>
+      </div>
       <label class="snap-toggle">
         <input type="checkbox" id="snapToggle" checked> Snap to ½ ft grid
       </label>
@@ -701,6 +713,14 @@ let dragging   = null;
 let dragOff    = { x: 0, y: 0 };
 let nextId     = 20;
 
+// ─── Viewport (zoom / pan) ────────────────────────────────────────────────────
+let viewX = 0, viewY = 0, viewZoom = 1;
+let isPanning = false, panStart = null;
+
+function screenToWorld(sx, sy) {
+  return { x: (sx - viewX) / viewZoom, y: (sy - viewY) / viewZoom };
+}
+
 // ─── Undo History ─────────────────────────────────────────────────────────────
 const MAX_HISTORY = 50;
 const undoStack   = [];
@@ -819,8 +839,28 @@ function snap(v) {
 }
 
 function initCanvas() {
-  canvas.width  = ft(garden.width);
-  canvas.height = ft(garden.height);
+  const area = canvas.parentElement;
+  canvas.width  = area.clientWidth  || 800;
+  canvas.height = area.clientHeight || 600;
+  fitView();
+  draw();
+}
+
+function fitView() {
+  const margin = 30;
+  const scaleX = (canvas.width  - margin * 2) / ft(garden.width);
+  const scaleY = (canvas.height - margin * 2) / ft(garden.height);
+  viewZoom = Math.min(scaleX, scaleY);
+  viewX = (canvas.width  - ft(garden.width)  * viewZoom) / 2;
+  viewY = (canvas.height - ft(garden.height) * viewZoom) / 2;
+}
+
+function adjustZoom(factor) {
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  const newZoom = Math.min(4, Math.max(0.1, viewZoom * factor));
+  viewX = cx - (cx - viewX) * (newZoom / viewZoom);
+  viewY = cy - (cy - viewY) * (newZoom / viewZoom);
+  viewZoom = newZoom;
   draw();
 }
 
@@ -829,19 +869,29 @@ function draw() {
   const W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
 
-  // Background
-  ctx.fillStyle = '#dff0d8';
+  // Area outside the garden
+  ctx.fillStyle = '#cdd9cd';
   ctx.fillRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.translate(viewX, viewY);
+  ctx.scale(viewZoom, viewZoom);
+
+  const GW = ft(garden.width), GH = ft(garden.height);
+
+  // Garden background
+  ctx.fillStyle = '#dff0d8';
+  ctx.fillRect(0, 0, GW, GH);
 
   // Grid lines
   ctx.lineWidth = 0.5;
   for (let x = 0; x <= garden.width; x++) {
     ctx.strokeStyle = x % 5 === 0 ? '#a8c8a8' : '#c8e0c0';
-    ctx.beginPath(); ctx.moveTo(ft(x), 0); ctx.lineTo(ft(x), H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ft(x), 0); ctx.lineTo(ft(x), GH); ctx.stroke();
   }
   for (let y = 0; y <= garden.height; y++) {
     ctx.strokeStyle = y % 5 === 0 ? '#a8c8a8' : '#c8e0c0';
-    ctx.beginPath(); ctx.moveTo(0, ft(y)); ctx.lineTo(W, ft(y)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, ft(y)); ctx.lineTo(GW, ft(y)); ctx.stroke();
   }
 
   // Foot labels
@@ -851,7 +901,7 @@ function draw() {
     ctx.fillText(x, ft(x), 2);
   ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
   for (let y = 1; y < garden.height; y += (garden.height > 30 ? 5 : 2))
-    ctx.fillText(y, W - 3, ft(y));
+    ctx.fillText(y, GW - 3, ft(y));
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
 
   // Draw obstacles (back layer)
@@ -859,6 +909,12 @@ function draw() {
 
   // Draw beds (front layer)
   beds.forEach(b => drawBed(b));
+
+  // Garden border
+  ctx.strokeStyle = '#2d6a30'; ctx.lineWidth = 2;
+  ctx.strokeRect(0, 0, GW, GH);
+
+  ctx.restore();
 }
 
 function drawObstacle(o) {
@@ -1038,88 +1094,169 @@ function hitTest(px, py) {
 
 // ─── Mouse events ─────────────────────────────────────────────────────────────
 canvas.addEventListener('mousedown', e => {
-  const r   = canvas.getBoundingClientRect();
-  const mpx = e.clientX - r.left, mpy = e.clientY - r.top;
-  const hit = hitTest(mpx, mpy);
+  const r  = canvas.getBoundingClientRect();
+  const sx = e.clientX - r.left, sy = e.clientY - r.top;
+  const { x: wpx, y: wpy } = screenToWorld(sx, sy);
+  const hit = hitTest(wpx, wpy);
   if (hit) {
-    saveHistory(); // save before drag so position change is undoable
+    saveHistory();
     select(hit.item.id, hit.type);
     dragging = hit.item;
-    dragOff  = { x: mpx - ft(hit.item.x), y: mpy - ft(hit.item.y) };
+    dragOff  = { x: wpx - ft(hit.item.x), y: wpy - ft(hit.item.y) };
     canvas.style.cursor = 'grabbing';
   } else {
     select(null);
+    isPanning = true;
+    panStart  = { x: sx - viewX, y: sy - viewY };
+    canvas.style.cursor = 'grabbing';
   }
 });
 
 canvas.addEventListener('mousemove', e => {
-  const r   = canvas.getBoundingClientRect();
-  const mpx = e.clientX - r.left, mpy = e.clientY - r.top;
+  const r  = canvas.getBoundingClientRect();
+  const sx = e.clientX - r.left, sy = e.clientY - r.top;
+  const { x: wpx, y: wpy } = screenToWorld(sx, sy);
 
   if (dragging) {
-    const newX = snap(Math.max(0, Math.min(px(mpx - dragOff.x), garden.width  - dragging.w)));
-    const newY = snap(Math.max(0, Math.min(px(mpy - dragOff.y), garden.height - dragging.h)));
+    const newX = snap(Math.max(0, Math.min(px(wpx - dragOff.x), garden.width  - dragging.w)));
+    const newY = snap(Math.max(0, Math.min(px(wpy - dragOff.y), garden.height - dragging.h)));
     dragging.x = newX;
     dragging.y = newY;
     syncPositionFields();
     draw();
+  } else if (isPanning) {
+    viewX = sx - panStart.x;
+    viewY = sy - panStart.y;
+    draw();
   } else {
-    canvas.style.cursor = hitTest(mpx, mpy) ? 'grab' : 'default';
+    canvas.style.cursor = hitTest(wpx, wpy) ? 'grab' : 'default';
   }
 });
 
 canvas.addEventListener('mouseup', () => {
-  dragging = null;
+  dragging  = null;
+  isPanning = false;
   canvas.style.cursor = 'default';
   renderLists();
   draw();
 });
 
-// Touch support — tap opens the detail panel; drag moves the item.
-// select() is deferred to touchend for taps so the panel doesn't open mid-drag.
+// Touch support:
+//  • 1 finger on item  → tap = select, drag = move item
+//  • 1 finger on empty → pan the view
+//  • 2 fingers          → pinch-zoom + pan
 {
-  let touchHit = null;
-  let touchStartPos = null;
-  let touchMoved = false;
+  let touchHit      = null;
+  let touchStart    = null;
+  let touchMoved    = false;
+  let pinchDist     = null;
+  let pinchMid      = null;
+
+  function getTouchDist(t) {
+    const dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY;
+    return Math.sqrt(dx*dx + dy*dy);
+  }
+  function getTouchMid(t, r) {
+    return { x: (t[0].clientX + t[1].clientX) / 2 - r.left,
+             y: (t[0].clientY + t[1].clientY) / 2 - r.top };
+  }
 
   canvas.addEventListener('touchstart', e => {
     e.preventDefault();
+    const r = canvas.getBoundingClientRect();
+
+    if (e.touches.length === 2) {
+      // Begin pinch — cancel any ongoing item drag
+      dragging = null; isPanning = false; touchHit = null;
+      pinchDist = getTouchDist(e.touches);
+      pinchMid  = getTouchMid(e.touches, r);
+      return;
+    }
+
+    // Single finger
     const t = e.touches[0];
-    touchStartPos = { x: t.clientX, y: t.clientY };
+    touchStart = { x: t.clientX, y: t.clientY };
     touchMoved = false;
-    const r   = canvas.getBoundingClientRect();
-    const mpx = t.clientX - r.left, mpy = t.clientY - r.top;
-    touchHit  = hitTest(mpx, mpy);
+    pinchDist  = null;
+    const sx = t.clientX - r.left, sy = t.clientY - r.top;
+    const { x: wpx, y: wpy } = screenToWorld(sx, sy);
+    touchHit = hitTest(wpx, wpy);
     if (touchHit) {
       saveHistory();
       dragging = touchHit.item;
-      dragOff  = { x: mpx - ft(touchHit.item.x), y: mpy - ft(touchHit.item.y) };
+      dragOff  = { x: wpx - ft(touchHit.item.x), y: wpy - ft(touchHit.item.y) };
     } else {
-      select(null);
-      touchHit = null;
+      select(null); touchHit = null;
+      isPanning = true;
+      panStart  = { x: sx - viewX, y: sy - viewY };
     }
   }, { passive: false });
 
   canvas.addEventListener('touchmove', e => {
     e.preventDefault();
+    const r = canvas.getBoundingClientRect();
+
+    if (e.touches.length === 2) {
+      // Pinch zoom + pan
+      const dist = getTouchDist(e.touches);
+      const mid  = getTouchMid(e.touches, r);
+      if (pinchDist !== null) {
+        const factor  = dist / pinchDist;
+        const newZoom = Math.min(4, Math.max(0.1, viewZoom * factor));
+        // Zoom centered on pinch midpoint
+        viewX = mid.x - (mid.x - viewX) * (newZoom / viewZoom);
+        viewY = mid.y - (mid.y - viewY) * (newZoom / viewZoom);
+        viewZoom = newZoom;
+        // Pan from midpoint delta
+        viewX += mid.x - pinchMid.x;
+        viewY += mid.y - pinchMid.y;
+        draw();
+      }
+      pinchDist = dist; pinchMid = mid;
+      return;
+    }
+
     const t  = e.touches[0];
-    const dx = t.clientX - touchStartPos.x;
-    const dy = t.clientY - touchStartPos.y;
-    if (Math.sqrt(dx * dx + dy * dy) > 5) touchMoved = true;
-    canvas.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY, bubbles: true }));
+    const dx = t.clientX - touchStart.x, dy = t.clientY - touchStart.y;
+    if (Math.sqrt(dx*dx + dy*dy) > 5) touchMoved = true;
+
+    if (dragging) {
+      canvas.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY, bubbles: true }));
+    } else if (isPanning) {
+      const sx = t.clientX - r.left, sy = t.clientY - r.top;
+      viewX = sx - panStart.x;
+      viewY = sy - panStart.y;
+      draw();
+    }
   }, { passive: false });
 
   canvas.addEventListener('touchend', e => {
     e.preventDefault();
+    pinchDist = null;
     if (!touchMoved && touchHit) select(touchHit.item.id, touchHit.type);
-    canvas.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    isPanning = false;
+    if (dragging) canvas.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    else { dragging = null; renderLists(); draw(); }
     touchHit = null;
   }, { passive: false });
 }
 
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const r  = canvas.getBoundingClientRect();
+  const sx = e.clientX - r.left, sy = e.clientY - r.top;
+  const factor  = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+  const newZoom = Math.min(4, Math.max(0.1, viewZoom * factor));
+  viewX = sx - (sx - viewX) * (newZoom / viewZoom);
+  viewY = sy - (sy - viewY) * (newZoom / viewZoom);
+  viewZoom = newZoom;
+  draw();
+}, { passive: false });
+
 canvas.addEventListener('dblclick', e => {
   const r   = canvas.getBoundingClientRect();
-  const hit = hitTest(e.clientX - r.left, e.clientY - r.top);
+  const sx  = e.clientX - r.left, sy = e.clientY - r.top;
+  const hit = hitTest(...Object.values(screenToWorld(sx, sy)));
   if (!hit) return;
   const name = prompt('Rename:', hit.item.name);
   if (name) { hit.item.name = name; draw(); renderLists(); syncPanel(); }
@@ -1322,7 +1459,8 @@ function applyGardenSize() {
   saveHistory();
   garden.width  = parseFloat(document.getElementById('gardenWidth').value)  || 20;
   garden.height = parseFloat(document.getElementById('gardenHeight').value) || 18;
-  initCanvas();
+  fitView();
+  draw();
 }
 
 // ─── Suggest layout ───────────────────────────────────────────────────────────
@@ -1389,10 +1527,26 @@ function renderLists() {
 
 // ─── Export / Print ───────────────────────────────────────────────────────────
 function exportImg() {
+  // Render at full 1:1 scale into a temporary canvas for a clean export
+  const oc = document.createElement('canvas');
+  oc.width  = ft(garden.width);
+  oc.height = ft(garden.height);
+  const savedCtx = canvas.getContext('2d');
+  // Temporarily redirect drawing to oc by swapping viewX/Y/Zoom
+  const [svX, svY, svZ] = [viewX, viewY, viewZoom];
+  const [sw, sh] = [canvas.width, canvas.height];
+  canvas.width  = oc.width;
+  canvas.height = oc.height;
+  viewX = 0; viewY = 0; viewZoom = 1;
+  draw();
   const a = document.createElement('a');
   a.download = 'garden-layout.png';
   a.href = canvas.toDataURL('image/png');
   a.click();
+  canvas.width  = sw;
+  canvas.height = sh;
+  viewX = svX; viewY = svY; viewZoom = svZ;
+  draw();
 }
 
 function printPlan() {
@@ -2260,6 +2414,14 @@ function generateShoppingHTML() {
 initCanvas();
 renderLists();
 setTimeout(loadLocalStoreInputs, 0); // restore saved store name/URL after DOM is ready
+
+// Resize canvas to fill its container whenever the window changes size
+new ResizeObserver(() => {
+  const area = canvas.parentElement;
+  canvas.width  = area.clientWidth;
+  canvas.height = area.clientHeight;
+  draw();
+}).observe(canvas.parentElement);
 
 // ─── Tutorial modal ────────────────────────────────────────────────────────────
 function showTutorial() {
