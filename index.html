@@ -678,6 +678,7 @@
         </select>
         <button class="btn btn-primary btn-sm" onclick="addPlant()">Add</button>
       </div>
+      <div id="plantAddWarn" style="display:none;margin-top:6px;padding:6px 10px;background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;font-size:12px;color:#dc2626;line-height:1.4"></div>
     </div>
 
     <div class="panel-section" id="notesSection">
@@ -1369,8 +1370,28 @@ function addPlant() {
   const sel = document.getElementById('plantSelect');
   const p = sel.value; if (!p) return;
   const bed = beds.find(b => b.id === selectedId); if (!bed) return;
+
+  const pd = PLANT_DATA[p];
+  if (pd) {
+    const { rowSpan, colSpan } = getPlantSpan(pd.sqft);
+    const L = Math.floor(bed.h), W = Math.floor(bed.w);
+    if (L < rowSpan || W < colSpan) {
+      showPlantWarn(`This bed (${bed.w}×${bed.h} ft) is too small for ${p} — needs at least ${colSpan}×${rowSpan} ft.`);
+      sel.value = '';
+      return;
+    }
+  }
+
   if (!bed.plants.includes(p)) { saveHistory(); bed.plants.push(p); renderPlantTags(bed); draw(); }
   sel.value = '';
+}
+
+function showPlantWarn(msg) {
+  let el = document.getElementById('plantAddWarn');
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(el._t);
+  el._t = setTimeout(() => { el.style.display = 'none'; }, 4000);
 }
 
 function removePlant(plant) {
