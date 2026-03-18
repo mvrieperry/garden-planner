@@ -2202,27 +2202,49 @@ function igridDrop(e) {
     clearSpanFromGrid(bed.plantGrid, dst.row, dst.col);
     if (emoji) {
       const { rowSpan, colSpan } = igridDragSrc;
-      if (canPlaceSpan(bed.plantGrid, dst.row, dst.col, rowSpan, colSpan, L, W))
+      if (canPlaceSpan(bed.plantGrid, dst.row, dst.col, rowSpan, colSpan, L, W)) {
         placeSpanInGrid(bed.plantGrid, dst.row, dst.col, rowSpan, colSpan, emoji);
-      else
-        bed.plantGrid[dst.row][dst.col] = { emoji, rowSpan: 1, colSpan: 1 };
+      } else {
+        showIgridToast(`Not enough space here — this plant needs a ${colSpan}×${rowSpan} ft area.`);
+        igridDragSrc = null;
+        rerenderIGrid(bed.id);
+        return;
+      }
     }
   } else {
     if (igridDragSrc.row === dst.row && igridDragSrc.col === dst.col) return;
     const srcCell = bed.plantGrid[igridDragSrc.row][igridDragSrc.col];
     if (!srcCell || srcCell.occupied) return;
-    const srcEmoji  = typeof srcCell === 'string' ? srcCell : srcCell.emoji;
-    const srcRSpan  = (typeof srcCell === 'object' && srcCell.rowSpan) || 1;
-    const srcCSpan  = (typeof srcCell === 'object' && srcCell.colSpan) || 1;
+    const srcEmoji = typeof srcCell === 'string' ? srcCell : srcCell.emoji;
+    const srcRSpan = (typeof srcCell === 'object' && srcCell.rowSpan) || 1;
+    const srcCSpan = (typeof srcCell === 'object' && srcCell.colSpan) || 1;
     clearSpanFromGrid(bed.plantGrid, igridDragSrc.row, igridDragSrc.col);
     clearSpanFromGrid(bed.plantGrid, dst.row, dst.col);
-    if (canPlaceSpan(bed.plantGrid, dst.row, dst.col, srcRSpan, srcCSpan, L, W))
+    if (canPlaceSpan(bed.plantGrid, dst.row, dst.col, srcRSpan, srcCSpan, L, W)) {
       placeSpanInGrid(bed.plantGrid, dst.row, dst.col, srcRSpan, srcCSpan, srcEmoji);
-    else if (bed.plantGrid[dst.row][dst.col] === null)
-      bed.plantGrid[dst.row][dst.col] = { emoji: srcEmoji, rowSpan: 1, colSpan: 1 };
+    } else {
+      // Destination doesn't have room — restore plant to its source cell
+      if (canPlaceSpan(bed.plantGrid, igridDragSrc.row, igridDragSrc.col, srcRSpan, srcCSpan, L, W))
+        placeSpanInGrid(bed.plantGrid, igridDragSrc.row, igridDragSrc.col, srcRSpan, srcCSpan, srcEmoji);
+      showIgridToast(`Not enough space here — this plant needs a ${srcCSpan}×${srcRSpan} ft area.`);
+    }
   }
   igridDragSrc = null;
   rerenderIGrid(bed.id);
+}
+
+function showIgridToast(msg) {
+  let t = document.getElementById('igridToast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'igridToast';
+    t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;z-index:9999;pointer-events:none;transition:opacity 0.3s;white-space:nowrap;max-width:90vw;text-align:center';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.style.opacity = '1';
+  clearTimeout(t._t);
+  t._t = setTimeout(() => { t.style.opacity = '0'; }, 3000);
 }
 
 function generatePlantsHTML() {
