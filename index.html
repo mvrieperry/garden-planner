@@ -2656,6 +2656,22 @@ function generateShoppingHTML() {
     ['raised bed garden soil mix', 'Soil'],
   ]);
 
+  // Seeds & Plants
+  const largePlantWords = ['apple','pear','peach','cherr','lemon','kiwi','blueberr','grape','rose','lavender','hibiscus'];
+  const allPlants = [...new Set(beds.flatMap(b => b.plants || []))].filter(p => PLANT_DATA[p]);
+  const seedRows = allPlants.map(p => {
+    const pd = PLANT_DATA[p];
+    const plantName = p.split(' ').slice(1).join(' ');
+    const nameLower = plantName.toLowerCase();
+    const kw = `${nameLower} ${largePlantWords.some(w => nameLower.includes(w)) ? 'plant' : 'seeds'}`;
+    const bedsUsing = beds.filter(b => (b.plants||[]).includes(p)).map(b => b.name || 'Bed').join(', ');
+    return `<tr>
+      <td>${pd.emoji} <strong>${plantName}</strong></td>
+      <td style="font-size:11px;color:#666">${bedsUsing}</td>
+      <td>${amazonBadge(kw)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="3" style="color:#999;font-style:italic">No plants added to beds yet.</td></tr>';
+
   return shopBanner + `
   <div class="report-summary">
     <h3>🛒 Total Shopping List — ${beds.length} Bed${beds.length > 1 ? 's' : ''}</h3>
@@ -2757,6 +2773,20 @@ function generateShoppingHTML() {
         </tr>
       </table>
       <p style="font-size:11px;color:#888">💡 Bulk delivery (≥1 yd³) is usually cheaper than bags. Ask your local nursery — typically $35–$60/yd³ delivered. ≈$${soilCost} estimated. ${amazonBadge('raised bed garden soil mix')}</p>
+    </div>
+  </div>
+
+  <div class="report-bed" style="margin-bottom:20px">
+    <div class="report-bed-header">
+      <h3>🌱 Seeds &amp; Plants</h3>
+      <span>${allPlants.length} plant type${allPlants.length !== 1 ? 's' : ''} across your garden</span>
+    </div>
+    <div class="report-bed-body">
+      <table class="materials-table">
+        <tr><th>Plant</th><th>Used in</th><th>Buy seeds / plants</th></tr>
+        ${seedRows}
+      </table>
+      <p style="font-size:11px;color:#888;margin-top:10px">💡 Prices vary by variety. Check your local nursery for transplants or bulk seed packets.</p>
     </div>
   </div>
 
