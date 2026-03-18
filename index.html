@@ -2384,9 +2384,9 @@ function igridDrop(e) {
       clearSpanFromGrid(bed.plantGrid, dst.row, dst.col);
     } else {
       const { rowSpan, colSpan } = igridDragSrc;
-      // Clamp drop position so the span stays within grid bounds
-      const pr = Math.min(dst.row, L - rowSpan);
-      const pc = Math.min(dst.col, W - colSpan);
+      // Center the span on the drop cell, then clamp to grid bounds
+      const pr = Math.max(0, Math.min(dst.row - Math.floor(rowSpan / 2), L - rowSpan));
+      const pc = Math.max(0, Math.min(dst.col - Math.floor(colSpan / 2), W - colSpan));
       if (pr < 0 || pc < 0) {
         showIgridToast(`Bed too small for this plant — needs at least ${colSpan}×${rowSpan} ft.`);
         igridDragSrc = null; rerenderIGrid(bed.id); return;
@@ -2407,9 +2407,9 @@ function igridDrop(e) {
     const srcRSpan = (typeof srcCell === 'object' && srcCell.rowSpan) || 1;
     const srcCSpan = (typeof srcCell === 'object' && srcCell.colSpan) || 1;
     clearSpanFromGrid(bed.plantGrid, igridDragSrc.row, igridDragSrc.col);
-    // Clamp drop position so the span stays within grid bounds
-    const pr = Math.min(dst.row, L - srcRSpan);
-    const pc = Math.min(dst.col, W - srcCSpan);
+    // Center the span on the drop cell, then clamp to grid bounds
+    const pr = Math.max(0, Math.min(dst.row - Math.floor(srcRSpan / 2), L - srcRSpan));
+    const pc = Math.max(0, Math.min(dst.col - Math.floor(srcCSpan / 2), W - srcCSpan));
     clearSpanFromGrid(bed.plantGrid, pr, pc);
     if (canPlaceSpan(bed.plantGrid, pr, pc, srcRSpan, srcCSpan, L, W)) {
       placeSpanInGrid(bed.plantGrid, pr, pc, srcRSpan, srcCSpan, srcEmoji);
