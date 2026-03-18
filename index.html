@@ -88,7 +88,14 @@
     }
     #tutorialModal .modal-card {
       max-width: 480px; max-height: calc(100vh - 40px);
-      overflow-y: auto; display: block;
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    #tutorialModal .tutorial-steps {
+      overflow-y: auto; flex: 1; min-height: 0;
+    }
+    #tutorialModal .modal-footer {
+      flex-shrink: 0; padding-top: 16px;
+      border-top: 1px solid #e8f0e8; margin-top: 4px;
     }
     .modal-card h2 { font-size: 20px; color: #2d6a30; margin-bottom: 4px; }
     .modal-card .modal-sub { font-size: 13px; color: #666; margin-bottom: 20px; }
