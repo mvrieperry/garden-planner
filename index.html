@@ -1423,8 +1423,7 @@ function addPlant() {
   if (!bed.plants.includes(p)) {
     saveHistory();
     bed.plants.push(p);
-    bed.plantGrid = null; // reset so initPlantGrid rebuilds with new plant included
-    initPlantGrid(bed);
+    addPlantToGrid(bed, p);
     renderPlantTags(bed); draw();
   }
   sel.value = '';
@@ -1441,9 +1440,8 @@ function showPlantWarn(msg) {
 function removePlant(plant) {
   const bed = beds.find(b => b.id === selectedId); if (!bed) return;
   saveHistory();
+  removePlantFromGrid(bed, plant);
   bed.plants = bed.plants.filter(p => p !== plant);
-  bed.plantGrid = null;
-  if (bed.plants.length) initPlantGrid(bed);
   renderPlantTags(bed); draw();
 }
 
@@ -2189,6 +2187,38 @@ function initPlantGrid(bed) {
   bed.plantGrid = cells;
 }
 
+// Add a new plant into existing empty cells without disturbing other placements
+function addPlantToGrid(bed, pName) {
+  if (!bed.plantGrid) { initPlantGrid(bed); return; }
+  const pd = PLANT_DATA[pName]; if (!pd) return;
+  const { rowSpan, colSpan } = getPlantSpan(pd.sqft);
+  const L = bed.plantGrid.length;
+  const W = bed.plantGrid[0]?.length || 0;
+  const instances = Math.max(1, Math.round((L * W) / bed.plants.length / (rowSpan * colSpan)));
+  for (let i = 0; i < instances; i++) {
+    outer: for (let r = 0; r < L; r++)
+      for (let c = 0; c < W; c++)
+        if (canPlaceSpan(bed.plantGrid, r, c, rowSpan, colSpan, L, W)) {
+          placeSpanInGrid(bed.plantGrid, r, c, rowSpan, colSpan, pd.emoji);
+          break outer;
+        }
+  }
+}
+
+// Remove only cells belonging to a specific plant, leaving others in place
+function removePlantFromGrid(bed, pName) {
+  if (!bed.plantGrid) return;
+  const pd = PLANT_DATA[pName]; if (!pd) return;
+  bed.plantGrid.forEach((row, r) => {
+    row.forEach((cell, c) => {
+      if (cell && !cell.occupied) {
+        const emoji = typeof cell === 'string' ? cell : cell.emoji;
+        if (emoji === pd.emoji) clearSpanFromGrid(bed.plantGrid, r, c);
+      }
+    });
+  });
+}
+
 function resetPlantGrid(bedId) {
   const bed = beds.find(b => b.id === bedId);
   if (!bed) return;
@@ -2509,8 +2539,7 @@ function addPlantFromOrganizer(bedId) {
   if (!bed.plants.includes(p)) {
     saveHistory();
     bed.plants.push(p);
-    bed.plantGrid = null;
-    initPlantGrid(bed);
+    addPlantToGrid(bed, p);
     draw();
   }
   sel.value = '';
