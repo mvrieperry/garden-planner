@@ -17,7 +17,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
       background: #f0f4f0;
       color: #2d3a2e;
       overflow: hidden;
@@ -29,17 +29,32 @@
     /* ── Sidebar ── */
     .sidebar {
       width: 240px;
-      background: #fff;
-      border-right: 1px solid #d4e4d4;
+      background: #fafdf8;
+      border-right: 1px solid #c6d9c6;
       display: flex;
       flex-direction: column;
       overflow-y: auto;
       flex-shrink: 0;
+      transition: width 0.22s ease;
     }
+    .sidebar.collapsed { width: 0; overflow: hidden; border-right: none; }
+
+    .sidebar-toggle {
+      flex-shrink: 0;
+      background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+      color: #fff; border-radius: 4px; width: 22px; height: 22px;
+      font-size: 15px; line-height: 1; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.2s; margin-top: 1px;
+    }
+    .sidebar-toggle:hover { background: rgba(255,255,255,0.28); }
+    .sidebar.collapsed .sidebar-toggle { transform: rotate(180deg); }
+
+    .menu-btn { display: none; }
 
     .sidebar-header {
       padding: 14px 16px;
-      background: #2d6a30;
+      background: #234f25;
       color: white;
       display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
     }
@@ -135,8 +150,8 @@
     .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 
     .toolbar {
-      padding: 8px 14px; background: #fff;
-      border-bottom: 1px solid #d4e4d4;
+      padding: 8px 14px; background: #fafdf8;
+      border-bottom: 1px solid #c6d9c6;
       display: flex; align-items: center; gap: 8px; flex-shrink: 0;
     }
     .toolbar-hint {
@@ -160,8 +175,8 @@
     /* ── Right Panel ── */
     .right-panel {
       width: 220px; flex-shrink: 0;
-      background: #fff;
-      border-left: 1px solid #d4e4d4;
+      background: #fafdf8;
+      border-left: 1px solid #c6d9c6;
       display: none;
       flex-direction: column;
       overflow-y: auto;
@@ -169,12 +184,12 @@
     .right-panel.open { display: flex; }
 
     .panel-header {
-      padding: 12px 14px; border-bottom: 1px solid #e8f0e8;
+      padding: 12px 14px; border-bottom: 1px solid #ddeadd;
       display: flex; align-items: center; justify-content: space-between;
     }
     .panel-header h2 { font-size: 13px; font-weight: 700; }
 
-    .panel-section { padding: 10px 14px; border-bottom: 1px solid #e8f0e8; }
+    .panel-section { padding: 10px 14px; border-bottom: 1px solid #ddeadd; }
     .panel-section h3 {
       font-size: 10px; font-weight: 700;
       text-transform: uppercase; letter-spacing: 0.5px;
@@ -366,6 +381,49 @@
     .summary-stat { text-align: center; }
     .summary-stat .val { font-size: 22px; font-weight: 800; color: #2d6a30; }
     .summary-stat .lbl { font-size: 10px; color: #6b8c6c; }
+
+    /* ── Mobile layout ── */
+    @media (max-width: 680px) {
+      body { overflow: hidden; }
+
+      /* Sidebar becomes a fixed left drawer */
+      .sidebar {
+        position: fixed; left: 0; top: 0; height: 100vh; z-index: 200;
+        width: 260px !important; transform: translateX(-100%);
+        transition: transform 0.25s ease; overflow-y: auto;
+        box-shadow: 4px 0 20px rgba(0,0,0,0.25);
+      }
+      .sidebar.open { transform: translateX(0); }
+      .sidebar.collapsed { transform: translateX(-100%); width: 260px !important; }
+      .sidebar-toggle { display: none; }
+
+      /* Backdrop */
+      .sidebar-backdrop {
+        display: none; position: fixed; inset: 0;
+        background: rgba(0,0,0,0.4); z-index: 199;
+      }
+      .sidebar-backdrop.visible { display: block; }
+
+      /* Show ☰ menu button in toolbar */
+      .menu-btn { display: flex !important; }
+      .toolbar-hint { display: none; }
+      .canvas-area { padding: 6px; }
+
+      /* Right panel slides up from bottom */
+      .right-panel {
+        position: fixed; bottom: 0; left: 0; right: 0;
+        width: 100% !important; max-height: 62vh;
+        transform: translateY(100%);
+        transition: transform 0.3s ease;
+        border-left: none;
+        border-top: 2px solid #c6d9c6;
+        border-radius: 14px 14px 0 0;
+        box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+        display: flex !important;
+        overflow-y: auto;
+      }
+      .right-panel.open { transform: translateY(0); }
+    }
   </style>
 </head>
 <body>
@@ -378,7 +436,10 @@
         <h1>🌱 Garden Planner</h1>
         <p>Drag beds · Click to edit · Double-click to rename</p>
       </div>
-      <button class="help-btn" onclick="showTutorial()" title="Help / Getting started">?</button>
+      <div style="display:flex;gap:6px;align-items:flex-start">
+        <button class="help-btn" onclick="showTutorial()" title="Help / Getting started">?</button>
+        <button class="sidebar-toggle" onclick="toggleSidebar()" title="Collapse sidebar">‹</button>
+      </div>
     </div>
 
     <div class="section">
@@ -458,6 +519,7 @@
   <!-- ── Canvas ── -->
   <div class="main">
     <div class="toolbar">
+      <button class="btn btn-secondary menu-btn" onclick="openSidebar()" title="Menu">☰ Menu</button>
       <span class="toolbar-hint">🖱️ Drag to move &nbsp;|&nbsp; Click to select &nbsp;|&nbsp; Double-click to rename &nbsp;|&nbsp; Edit size/plants in the right panel</span>
       <label class="snap-toggle">
         <input type="checkbox" id="snapToggle" checked> Snap to ½ ft grid
@@ -473,6 +535,7 @@
     <div class="panel-header">
       <h2 id="panelTitle">Details</h2>
       <div style="display:flex;gap:6px">
+        <button class="btn btn-sm btn-secondary" onclick="select(null)" title="Close panel">✕ Close</button>
         <button class="btn btn-sm btn-secondary" onclick="duplicateSelected()" title="Duplicate (makes a copy offset by 1 ft)">📋 Duplicate</button>
         <button class="btn btn-sm btn-danger" onclick="deleteSelected()">🗑 Remove</button>
       </div>
@@ -1012,6 +1075,23 @@ canvas.addEventListener('mouseup', () => {
   draw();
 });
 
+// Touch support — translate touch events into synthetic mouse events so
+// drag logic works on mobile without duplicating any code.
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  canvas.dispatchEvent(new MouseEvent('mousedown', { clientX: t.clientX, clientY: t.clientY, bubbles: true }));
+}, { passive: false });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  canvas.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY, bubbles: true }));
+}, { passive: false });
+canvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  canvas.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+}, { passive: false });
+
 canvas.addEventListener('dblclick', e => {
   const r   = canvas.getBoundingClientRect();
   const hit = hitTest(e.clientX - r.left, e.clientY - r.top);
@@ -1162,12 +1242,22 @@ function updatePotDiam(val) {
 }
 
 function addObstacle() {
-  const name = prompt('Name this obstacle (e.g. 🌳 Tree, 🚪 Door, 🪑 Furniture):', '⬛ Obstacle');
-  if (!name) return;
   saveHistory();
   const id = 'obs' + nextId++;
-  obstacles.push({ id, name, x:4, y:4, w:4, h:4, color:'#888' });
+  obstacles.push({ id, name: '⬛ Obstacle', x: 4, y: 4, w: 4, h: 4, color: '#888' });
   renderLists(); draw(); select(id, 'obstacle');
+}
+
+function toggleSidebar() {
+  document.querySelector('.sidebar').classList.toggle('collapsed');
+}
+function openSidebar() {
+  document.querySelector('.sidebar').classList.add('open');
+  document.getElementById('sidebarBackdrop').classList.add('visible');
+}
+function closeSidebar() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('sidebarBackdrop').classList.remove('visible');
 }
 
 function duplicateSelected() {
@@ -2217,5 +2307,6 @@ setTimeout(function() {
   </div>
 </div>
 
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
 </body>
 </html>
