@@ -2441,8 +2441,8 @@ function generatePlantsHTML() {
     const avoidAlerts     = [];
     plants.forEach(p => {
       const pd = PLANT_DATA[p]; if (!pd) return;
-      pd.companions.forEach(c => { if (plants.includes(c)) companionAlerts.push(`${p} + ${c}`); });
-      pd.avoid.forEach(a => { if (plants.includes(a)) avoidAlerts.push(`${p} conflicts with ${a}`); });
+      pd.companions.forEach(c => { if (plants.includes(c)) companionAlerts.push([p, c].sort().join(' + ')); });
+      pd.avoid.forEach(a => { if (plants.includes(a)) avoidAlerts.push([p, a].sort().join(' conflicts with ')); });
     });
 
     const alertsHTML = avoidAlerts.length
