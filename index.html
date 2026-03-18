@@ -435,10 +435,18 @@
       }
       .sidebar-backdrop.visible { display: block; }
 
-      /* Show ☰ menu button in toolbar */
-      .menu-btn { display: flex !important; }
+      /* Toolbar pinned at top so it's always visible */
+      .toolbar {
+        position: fixed; top: 0; left: 0; right: 0; z-index: 190;
+        padding: 6px 10px; background: #fafdf8;
+      }
       .toolbar-hint { display: none; }
+      /* Push canvas down so it doesn't hide under the fixed toolbar */
+      .main { padding-top: 48px; }
       .canvas-area { padding: 0; }
+
+      /* ☰ button — always show, always tappable */
+      .menu-btn { display: flex !important; pointer-events: auto; }
 
       /* Right panel slides up from bottom */
       .right-panel {
@@ -453,11 +461,9 @@
         display: flex !important;
         overflow-y: auto;
         pointer-events: none;
+        z-index: 180;
       }
       .right-panel.open { transform: translateY(0); pointer-events: auto; }
-
-      /* Toolbar always sits on top */
-      .toolbar { position: relative; z-index: 10; }
     }
   </style>
 </head>
