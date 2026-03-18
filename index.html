@@ -1725,6 +1725,39 @@ const PLANT_DATA = {
   '🍃 Cannabis (Photoperiod)': { emoji:'🍃', sqft:9,  spacing:48, depthIn:18, sun:'Full', water:'High',   trellis:false, notes:'Full-size outdoor plant — can reach 6+ ft and needs lots of space. Flowers triggered by shorter days in late summer. Plant after last frost. Rich, well-draining soil.', companions:['🌼 Marigolds','🌿 Basil','🌸 Nasturtiums'], avoid:['🍅 Tomatoes'] },
 };
 
+// Shared plant <select> options HTML — used in right panel and organizer
+const PLANT_OPTIONS_HTML = `
+  <option value="">Add plant…</option>
+  <optgroup label="Vegetables">
+    <option>🍅 Tomatoes</option><option>🌶️ Hot Peppers</option><option>🫑 Bell Peppers</option>
+    <option>🍆 Eggplant</option><option>🥒 Cucumbers</option><option>🎃 Squash</option>
+    <option>🌽 Corn</option><option>🥕 Carrots</option><option>🥔 Potatoes</option>
+    <option>🍠 Sweet Potatoes</option><option>🥬 Lettuce</option><option>🌱 Spinach</option>
+    <option>🥦 Broccoli</option><option>🫛 Green Beans</option><option>🫘 Edamame</option>
+    <option>🧅 Onions</option><option>🧄 Garlic</option><option>🌱 Radishes</option>
+    <option>🌱 Vegetable</option>
+  </optgroup>
+  <optgroup label="Cannabis">
+    <option>🍃 Cannabis (Autoflower)</option><option>🍃 Cannabis (Photoperiod)</option>
+  </optgroup>
+  <optgroup label="Herbs">
+    <option>🌿 Basil</option><option>🌿 Chives</option><option>🌿 Parsley</option>
+    <option>🌿 Cilantro</option><option>🌿 Thyme</option><option>🌿 Oregano</option>
+    <option>🌿 Mint</option><option>🌿 Rosemary</option><option>🌿 Dill</option>
+    <option>🌿 Sage</option><option>🌿 Herb</option>
+  </optgroup>
+  <optgroup label="Flowers">
+    <option>🌼 Marigolds</option><option>🌸 Nasturtiums</option><option>🌻 Sunflowers</option>
+    <option>🌹 Roses</option><option>🌷 Tulips</option><option>🌺 Hibiscus</option>
+    <option>🪷 Lavender</option><option>💐 Wildflowers</option>
+  </optgroup>
+  <optgroup label="Fruit">
+    <option>🍓 Strawberries</option><option>🫐 Blueberries</option><option>🍇 Grapes</option>
+    <option>🍈 Melon</option><option>🍉 Watermelon</option><option>🍎 Apple</option>
+    <option>🍐 Pear</option><option>🍑 Peach</option><option>🍒 Cherries</option>
+    <option>🍋 Lemon</option><option>🥝 Kiwi</option>
+  </optgroup>`;
+
 // Reverse lookup: emoji character → sqft (used for grid migration)
 const EMOJI_SQFT = {};
 Object.values(PLANT_DATA).forEach(pd => { EMOJI_SQFT[pd.emoji] = pd.sqft; });
@@ -2348,10 +2381,17 @@ function generatePlantsHTML() {
     const plants  = bed.plants || [];
     const sqftTotal = bed.w * bed.h;
 
+    const addRow = `
+      <div style="display:flex;gap:6px;align-items:center;padding:8px 16px;border-bottom:1px solid #d4e4d4;background:#f8fcf8">
+        <select id="orgSelect-${bed.id}" style="flex:1;padding:5px 8px;border:1px solid #c6d9c6;border-radius:6px;font-size:13px;background:#fff">${PLANT_OPTIONS_HTML}</select>
+        <button class="btn btn-primary btn-sm" onclick="addPlantFromOrganizer('${bed.id}')">+ Add</button>
+      </div>`;
+
     if (!plants.length) {
       return `<div class="report-bed">
         <div class="report-bed-header"><h3>${bed.name}</h3><span>${bed.w}×${bed.h} ft</span></div>
-        <div class="report-bed-body"><p style="color:#888;font-size:13px;padding:4px 0">No plants assigned yet. Select this bed on the canvas and add plants in the right panel.</p></div>
+        ${addRow}
+        <div class="report-bed-body"><p style="color:#888;font-size:13px;padding:4px 0">No plants yet — use the dropdown above to add some.</p></div>
       </div>`;
     }
 
@@ -2411,6 +2451,7 @@ function generatePlantsHTML() {
         <h3>${bed.name} ${isPot ? '<span style="font-size:11px;font-weight:normal;background:rgba(193,68,14,0.15);border:1px solid #c1440e;border-radius:4px;padding:1px 6px;vertical-align:middle">🪴 pot</span>' : isGround ? '<span style="font-size:11px;font-weight:normal;background:rgba(58,125,68,0.2);border:1px solid #3a7d44;border-radius:4px;padding:1px 6px;vertical-align:middle">🌍 in-ground</span>' : ''}</h3>
         <span>${bed.w} ft × ${bed.h} ft · ${sqftTotal} sq ft</span>
       </div>
+      ${addRow}
       <div class="report-bed-body">
         ${alertsHTML}${companionsHTML}
         <div class="report-section">
@@ -2438,6 +2479,31 @@ function generatePlantsHTML() {
   </div>`;
 
   return summary + bedSections;
+}
+
+function addPlantFromOrganizer(bedId) {
+  const sel = document.getElementById('orgSelect-' + bedId);
+  const p = sel.value; if (!p) return;
+  const bed = beds.find(b => b.id === bedId); if (!bed) return;
+  const pd = PLANT_DATA[p];
+  if (pd) {
+    const { rowSpan, colSpan } = getPlantSpan(pd.sqft);
+    const L = Math.floor(bed.h), W = Math.floor(bed.w);
+    if (L < rowSpan || W < colSpan) {
+      showIgridToast(`Too small for ${p} — needs at least ${colSpan}×${rowSpan} ft.`);
+      sel.value = '';
+      return;
+    }
+  }
+  if (!bed.plants.includes(p)) {
+    saveHistory();
+    bed.plants.push(p);
+    bed.plantGrid = null;
+    initPlantGrid(bed);
+    draw();
+  }
+  sel.value = '';
+  switchTab('plant'); // re-render organizer to show new plant
 }
 
 // ─── Shopping List ────────────────────────────────────────────────────────────
