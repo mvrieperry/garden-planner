@@ -354,9 +354,9 @@
       grid-auto-rows: 38px;
       background: #1a3a1c; border-radius: 8px;
       padding: 10px; margin-bottom: 6px;
-      width: fit-content; max-width: 100%;
+      width: fit-content;
     }
-    .igrid-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .igrid-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
     .igrid-cell {
       display: flex; align-items: center; justify-content: center;
       border-radius: 4px;
@@ -1907,6 +1907,7 @@ let igridTouchEl      = null; // element being touch-dragged
 let igridTouchOverEl  = null; // current drag-over target
 let igridTouchStartPos = null; // for detecting tap vs drag
 let igridLastTap      = null;  // { time, bedId, row, col } for double-tap
+let igridDragActivated = false; // true once touch has moved enough to commit to drag
 
 function igridEraseCell(e) {
   const el = e.currentTarget;
@@ -1930,8 +1931,8 @@ function igridTouchStart(e) {
   const el = e.currentTarget;
   const isPlant   = el.classList.contains('has-plant');
   const isPalette = el.dataset.palette === 'true';
-  if (!isPlant && !isPalette) return; // empty cell — let modal scroll
-  e.preventDefault();
+  if (!isPlant && !isPalette) return; // empty cell — let scroll pass through
+  // Don't preventDefault yet — wait to see if it's a drag or a scroll swipe
   const rowSpan = +el.dataset.rowSpan || 1;
   const colSpan = +el.dataset.colSpan || 1;
   if (isPalette) {
@@ -1939,15 +1940,31 @@ function igridTouchStart(e) {
   } else {
     igridDragSrc = { bedId: el.dataset.bed, row: +el.dataset.row, col: +el.dataset.col, fromPalette: false, rowSpan, colSpan };
   }
-  el.classList.add('dragging');
   igridTouchEl = el;
   igridTouchStartPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  igridDragActivated = false;
 }
 
 function igridTouchMove(e) {
   if (!igridDragSrc) return;
-  e.preventDefault();
   const t = e.touches[0];
+  const dx = t.clientX - (igridTouchStartPos?.x || 0);
+  const dy = t.clientY - (igridTouchStartPos?.y || 0);
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  if (!igridDragActivated) {
+    if (dist < 6) return; // not committed yet — let browser decide scroll vs drag
+    // If movement is primarily horizontal, cancel drag and let grid scroll
+    if (Math.abs(dx) > Math.abs(dy) * 1.5) {
+      igridDragSrc = null; igridTouchEl = null; igridTouchOverEl = null;
+      return;
+    }
+    // Vertical/diagonal movement → commit to drag
+    igridDragActivated = true;
+    igridTouchEl.classList.add('dragging');
+  }
+
+  e.preventDefault(); // block scroll now that drag is confirmed
   // Briefly hide the dragged element so elementFromPoint sees through it
   if (igridTouchEl) igridTouchEl.style.pointerEvents = 'none';
   const under = document.elementFromPoint(t.clientX, t.clientY);
@@ -1962,40 +1979,45 @@ function igridTouchMove(e) {
 
 function igridTouchEnd(e) {
   if (!igridDragSrc) return;
-  e.preventDefault();
+  if (igridDragActivated) e.preventDefault();
   if (igridTouchEl)    { igridTouchEl.classList.remove('dragging'); igridTouchEl.style.pointerEvents = ''; }
   if (igridTouchOverEl) igridTouchOverEl.classList.remove('drag-over');
   const t = e.changedTouches[0];
-  if (igridTouchEl) igridTouchEl.style.pointerEvents = 'none';
-  const under = document.elementFromPoint(t.clientX, t.clientY);
-  if (igridTouchEl) igridTouchEl.style.pointerEvents = '';
-  const dstEl = under?.closest?.('.igrid-cell') || null;
 
-  // Double-tap detection for erase
-  const t2 = e.changedTouches[0];
-  const dx = t2.clientX - (igridTouchStartPos?.x || 0);
-  const dy = t2.clientY - (igridTouchStartPos?.y || 0);
+  // Double-tap detection for erase (only when drag was not activated)
+  const dx = t.clientX - (igridTouchStartPos?.x || 0);
+  const dy = t.clientY - (igridTouchStartPos?.y || 0);
   const moved = Math.sqrt(dx * dx + dy * dy) > 8;
-  if (!moved && igridDragSrc && !igridDragSrc.fromPalette) {
+  if (!moved && !igridDragActivated && igridDragSrc && !igridDragSrc.fromPalette) {
     const { bedId, row, col } = igridDragSrc;
     const now = Date.now();
     if (igridLastTap && now - igridLastTap.time < 350 &&
         igridLastTap.bedId === bedId && igridLastTap.row === row && igridLastTap.col === col) {
       const bed = beds.find(b => b.id === bedId);
       if (bed?.plantGrid) { clearSpanFromGrid(bed.plantGrid, row, col); rerenderIGrid(bedId); }
-      igridLastTap = null; igridDragSrc = null; igridTouchEl = null; igridTouchOverEl = null; return;
+      igridLastTap = null; igridDragSrc = null; igridTouchEl = null; igridTouchOverEl = null;
+      igridDragActivated = false; return;
     } else {
       igridLastTap = { time: now, bedId, row, col };
     }
   }
 
-  if (dstEl?.dataset?.bed) {
-    igridDrop({ preventDefault: () => {}, currentTarget: dstEl });
+  if (igridDragActivated) {
+    if (igridTouchEl) igridTouchEl.style.pointerEvents = 'none';
+    const under = document.elementFromPoint(t.clientX, t.clientY);
+    if (igridTouchEl) igridTouchEl.style.pointerEvents = '';
+    const dstEl = under?.closest?.('.igrid-cell') || null;
+    if (dstEl?.dataset?.bed) {
+      igridDrop({ preventDefault: () => {}, currentTarget: dstEl });
+    } else {
+      igridDragSrc = null;
+    }
   } else {
     igridDragSrc = null;
   }
   igridTouchEl = null;
   igridTouchOverEl = null;
+  igridDragActivated = false;
 }
 
 // Returns grid span dimensions for a plant. Plants ≤1 sqft stay 1×1;
