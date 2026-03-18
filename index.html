@@ -2262,6 +2262,7 @@ function clearBedPlants(bedId) {
   bed.plants = [];
   delete bed.plantGrid;
   saveHistory();
+  switchTab(activeTab);
   syncPanel();
 }
 
