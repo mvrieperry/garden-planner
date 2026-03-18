@@ -2686,13 +2686,28 @@ function generateShoppingHTML() {
     </tr>`;
   }).join('') || '<tr><td colspan="4" style="color:#999;font-style:italic">No plants added to beds yet.</td></tr>';
 
+  const totalPlantCount = allPlants.reduce((sum, p) => {
+    const pd = PLANT_DATA[p];
+    beds.forEach(bed => {
+      if (!(bed.plants||[]).includes(p)) return;
+      if (bed.plantGrid) {
+        bed.plantGrid.forEach(row => row.forEach(cell => {
+          if (cell && !cell.occupied && cell.emoji === pd.emoji) sum++;
+        }));
+      } else { sum++; }
+    });
+    return sum;
+  }, 0);
+
   return shopBanner + `
   <div class="report-summary">
     <h3>🛒 Total Shopping List — ${beds.length} Bed${beds.length > 1 ? 's' : ''}</h3>
     <div class="summary-grid">
       <div class="summary-stat"><div class="val">${bins.length}</div><div class="lbl">lumber boards</div></div>
       <div class="summary-stat"><div class="val">${postsNeeded}</div><div class="lbl">4×4 posts</div></div>
-      <div class="summary-stat"><div class="val">$${grandTotal}</div><div class="lbl">Est. grand total</div></div>
+      <div class="summary-stat"><div class="val">${Math.ceil(totalSoilCuFt / 2)}</div><div class="lbl">soil bags (2 cu ft)</div></div>
+      <div class="summary-stat"><div class="val">${totalPlantCount || '—'}</div><div class="lbl">plants / seeds</div></div>
+      <div class="summary-stat"><div class="val">$${grandTotal}</div><div class="lbl">Est. materials total</div></div>
     </div>
   </div>
 
