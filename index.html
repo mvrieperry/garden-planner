@@ -1863,8 +1863,18 @@ function generateBuildHTML() {
 
 // ─── Interactive Plant Grid ────────────────────────────────────────────────────
 let igridDragSrc    = null;
-let igridTouchEl    = null; // element being touch-dragged
-let igridTouchOverEl = null; // current drag-over target
+let igridTouchEl      = null; // element being touch-dragged
+let igridTouchOverEl  = null; // current drag-over target
+let igridTouchStartPos = null; // for detecting tap vs drag
+let igridLastTap      = null;  // { time, bedId, row, col } for double-tap
+
+function igridEraseCell(e) {
+  const el = e.currentTarget;
+  const bed = beds.find(b => b.id === el.dataset.bed);
+  if (!bed?.plantGrid) return;
+  clearSpanFromGrid(bed.plantGrid, +el.dataset.row, +el.dataset.col);
+  rerenderIGrid(bed.id);
+}
 
 // Compute the largest cell size (px) that fits W columns in the available width.
 function igridCellSize(W) {
@@ -1891,6 +1901,7 @@ function igridTouchStart(e) {
   }
   el.classList.add('dragging');
   igridTouchEl = el;
+  igridTouchStartPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
 }
 
 function igridTouchMove(e) {
@@ -1919,6 +1930,25 @@ function igridTouchEnd(e) {
   const under = document.elementFromPoint(t.clientX, t.clientY);
   if (igridTouchEl) igridTouchEl.style.pointerEvents = '';
   const dstEl = under?.closest?.('.igrid-cell') || null;
+
+  // Double-tap detection for erase
+  const t2 = e.changedTouches[0];
+  const dx = t2.clientX - (igridTouchStartPos?.x || 0);
+  const dy = t2.clientY - (igridTouchStartPos?.y || 0);
+  const moved = Math.sqrt(dx * dx + dy * dy) > 8;
+  if (!moved && igridDragSrc && !igridDragSrc.fromPalette) {
+    const { bedId, row, col } = igridDragSrc;
+    const now = Date.now();
+    if (igridLastTap && now - igridLastTap.time < 350 &&
+        igridLastTap.bedId === bedId && igridLastTap.row === row && igridLastTap.col === col) {
+      const bed = beds.find(b => b.id === bedId);
+      if (bed?.plantGrid) { clearSpanFromGrid(bed.plantGrid, row, col); rerenderIGrid(bedId); }
+      igridLastTap = null; igridDragSrc = null; igridTouchEl = null; igridTouchOverEl = null; return;
+    } else {
+      igridLastTap = { time: now, bedId, row, col };
+    }
+  }
+
   if (dstEl?.dataset?.bed) {
     igridDrop({ preventDefault: () => {}, currentTarget: dstEl });
   } else {
@@ -2035,6 +2065,7 @@ function igridCellHTML(cell, bedId, ri, ci, cellSize = 38) {
     ondragleave="igridDragLeave(event)"
     ondrop="igridDrop(event)"
     ondragend="igridDragEnd(event)"
+    ondblclick="${emoji ? 'igridEraseCell(event)' : ''}"
     ontouchstart="igridTouchStart(event)"
     ontouchmove="igridTouchMove(event)"
     ontouchend="igridTouchEnd(event)">${emoji || '·'}</div>`;
