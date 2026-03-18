@@ -2255,6 +2255,16 @@ function resetPlantGrid(bedId) {
   rerenderIGrid(bedId);
 }
 
+function clearBedPlants(bedId) {
+  const bed = beds.find(b => b.id === bedId);
+  if (!bed) return;
+  if (!confirm(`Remove all plants from "${bed.name}"? This cannot be undone.`)) return;
+  bed.plants = [];
+  delete bed.plantGrid;
+  saveHistory();
+  syncPanel();
+}
+
 function igridCellHTML(cell, bedId, ri, ci, cellSize = 38) {
   // Occupied cells are invisible — the spanning parent covers their space in the grid
   if (cell && cell.occupied) return '';
@@ -2319,7 +2329,10 @@ function renderInteractiveGrid(bed) {
   return `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px">
       <div class="grid-legend" style="margin:0">${legend}</div>
-      <button class="btn btn-sm" style="font-size:11px;padding:3px 10px;flex-shrink:0" onclick="resetPlantGrid('${bed.id}')">↺ Reset layout</button>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-sm" style="font-size:11px;padding:3px 10px" onclick="resetPlantGrid('${bed.id}')">↺ Reset layout</button>
+        <button class="btn btn-sm" style="font-size:11px;padding:3px 10px;background:#fee2e2;color:#b91c1c;border-color:#fca5a5" onclick="clearBedPlants('${bed.id}')">🗑 Clear all plants</button>
+      </div>
     </div>
     <div class="igrid-scroll">
       <div class="igrid" id="igrid-${bed.id}" style="grid-template-columns:repeat(${W},${cs}px);grid-auto-rows:${cs}px">${cells}</div>
