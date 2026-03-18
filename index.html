@@ -2666,12 +2666,25 @@ function generateShoppingHTML() {
     const nameLower = plantName.toLowerCase();
     const kw = `${nameLower} ${largePlantWords.some(w => nameLower.includes(w)) ? 'plant' : 'seeds'}`;
     const bedsUsing = beds.filter(b => (b.plants||[]).includes(p)).map(b => b.name || 'Bed').join(', ');
+    // Count placed instances from plantGrid; fall back to 1 per bed if no grid
+    let count = 0;
+    beds.forEach(bed => {
+      if (!(bed.plants||[]).includes(p)) return;
+      if (bed.plantGrid) {
+        bed.plantGrid.forEach(row => row.forEach(cell => {
+          if (cell && !cell.occupied && cell.emoji === pd.emoji) count++;
+        }));
+      } else {
+        count++; // at least 1 per bed if grid not initialized
+      }
+    });
     return `<tr>
       <td>${pd.emoji} <strong>${plantName}</strong></td>
+      <td style="text-align:center;font-weight:700;font-size:15px;color:#2d6a30">${count || '—'}</td>
       <td style="font-size:11px;color:#666">${bedsUsing}</td>
       <td>${amazonBadge(kw)}</td>
     </tr>`;
-  }).join('') || '<tr><td colspan="3" style="color:#999;font-style:italic">No plants added to beds yet.</td></tr>';
+  }).join('') || '<tr><td colspan="4" style="color:#999;font-style:italic">No plants added to beds yet.</td></tr>';
 
   return shopBanner + `
   <div class="report-summary">
@@ -2784,7 +2797,7 @@ function generateShoppingHTML() {
     </div>
     <div class="report-bed-body">
       <table class="materials-table">
-        <tr><th>Plant</th><th>Used in</th><th>Buy seeds / plants</th></tr>
+        <tr><th>Plant</th><th style="text-align:center">Count</th><th>Used in</th><th>Buy seeds / plants</th></tr>
         ${seedRows}
       </table>
       <p style="font-size:11px;color:#888;margin-top:10px">💡 Prices vary by variety. Check your local nursery for transplants or bulk seed packets.</p>
