@@ -1066,6 +1066,27 @@ function drawBed(b) {
     ctx.globalAlpha = 1;
   }
 
+  // Square-foot grid lines (raised + ground beds only — not pots)
+  if (!isPot) {
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    ctx.strokeStyle = isGround ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.22)';
+    ctx.lineWidth = 0.6;
+    ctx.setLineDash([2, 2]);
+    ctx.beginPath();
+    for (let col = 1; col < b.w; col++) {
+      const lx = x + ft(col);
+      ctx.moveTo(lx, y); ctx.lineTo(lx, y + h);
+    }
+    for (let row = 1; row < b.h; row++) {
+      const ly = y + ft(row);
+      ctx.moveTo(x, ly); ctx.lineTo(x + w, ly);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+  }
+
   // Plant emojis from grid — draw first so name label sits on top
   if (b.plantGrid) {
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
