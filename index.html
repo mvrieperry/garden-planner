@@ -2757,7 +2757,8 @@ function generateShoppingHTML() {
       if (!(bed.plants||[]).includes(p)) return;
       if (bed.plantGrid) {
         bed.plantGrid.forEach(row => row.forEach(cell => {
-          if (cell && !cell.occupied && cell.emoji === pd.emoji) count++;
+          if (cell && !cell.occupied && cell.emoji === pd.emoji)
+            count += (cell.perSqft || 1);
         }));
       } else {
         count++; // at least 1 per bed if grid not initialized
@@ -2777,7 +2778,8 @@ function generateShoppingHTML() {
       if (!(bed.plants||[]).includes(p)) return;
       if (bed.plantGrid) {
         bed.plantGrid.forEach(row => row.forEach(cell => {
-          if (cell && !cell.occupied && cell.emoji === pd.emoji) sum++;
+          if (cell && !cell.occupied && cell.emoji === pd.emoji)
+            sum += (cell.perSqft || 1);
         }));
       } else { sum++; }
     });
