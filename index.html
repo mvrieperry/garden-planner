@@ -1057,21 +1057,14 @@ function drawBed(b) {
       ctx.strokeStyle = '#ff9f0a'; ctx.lineWidth = 3;
       roundRect(x, y, w, h, 5); ctx.stroke();
     }
-    // Soil texture dots
-    ctx.globalAlpha = 0.1; ctx.fillStyle = '#fff';
-    for (let dx = 10; dx < w - 5; dx += 14)
-      for (let dy = 10; dy < h - 5; dy += 14) {
-        ctx.beginPath(); ctx.arc(x+dx, y+dy, 2, 0, Math.PI*2); ctx.fill();
-      }
-    ctx.globalAlpha = 1;
   }
 
   // Square-foot grid lines (raised + ground beds only — not pots)
   if (!isPot) {
     ctx.save();
     ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
-    ctx.strokeStyle = isGround ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.22)';
-    ctx.lineWidth = 0.6;
+    ctx.strokeStyle = isGround ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 0.8;
     ctx.setLineDash([2, 2]);
     ctx.beginPath();
     for (let col = 1; col < b.w; col++) {
