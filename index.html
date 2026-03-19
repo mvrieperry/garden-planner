@@ -1081,6 +1081,7 @@ function drawBed(b) {
   }
 
   // Plant emojis from grid — draw first so name label sits on top
+  if (!b.plantGrid && b.plants?.length) initPlantGrid(b);
   if (b.plantGrid) {
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     b.plantGrid.forEach((row, ri) => {
@@ -1852,10 +1853,8 @@ function loadJSON() {
         if (plan.beds) {
           beds = plan.beds;
           beds.forEach(b => {
-            if (gridNeedsMigration(b)) {
-              b.plantGrid = null;
-              if (b.plants?.length) initPlantGrid(b);
-            }
+            if (gridNeedsMigration(b)) b.plantGrid = null;
+            if (!b.plantGrid && b.plants?.length) initPlantGrid(b);
           });
         }
         if (plan.obstacles) obstacles = plan.obstacles;
