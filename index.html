@@ -1089,23 +1089,25 @@ function drawBed(b) {
 
   // Name label backdrop strip
   const hasGrid = b.plantGrid && b.plants && b.plants.length;
+  const dimLabel = isGround ? `in-ground · ${b.w*b.h} sqft` : `${b.w}×${b.h} · ${b.w*b.h} sqft`;
   if (hasGrid) {
     ctx.fillStyle = 'rgba(0,0,0,0.32)';
-    ctx.fillRect(x, y, w, 24);
+    ctx.fillRect(x, y, w, 36);
   }
 
   // Bed name
   ctx.fillStyle = '#fff';
   ctx.font = `bold ${clamp(10, 13, w / 5)}px sans-serif`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-  ctx.fillText(b.name, x + w/2, y + (hasGrid ? 4 : 7));
+  ctx.fillText(b.name, x + w/2, y + (hasGrid ? 3 : 7));
 
-  // Sub-label (dimensions / type) — only when no grid emojis filling the bed
+  // Dimensions sub-label — always shown
+  ctx.font = `${clamp(9, 11, w/6)}px sans-serif`;
+  ctx.globalAlpha = 0.8;
+  ctx.fillText(dimLabel, x + w/2, y + (hasGrid ? 18 : 22));
+  ctx.globalAlpha = 1;
+
   if (!hasGrid) {
-    ctx.font = `${clamp(9, 11, w/6)}px sans-serif`;
-    ctx.globalAlpha = 0.75;
-    ctx.fillText(isGround ? 'in-ground' : `${b.w} × ${b.h} ft`, x + w/2, y + 22);
-    ctx.globalAlpha = 1;
     // Plant name fallback (before organizer is opened)
     if (b.plants && b.plants.length && h > 70) {
       ctx.font = `${clamp(9, 11, w/6)}px sans-serif`;
