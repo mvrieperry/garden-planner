@@ -401,6 +401,14 @@
     .igrid-palette-item:hover { background: rgba(255,159,10,0.2); border-color: #ff9f0a; }
     .igrid-palette-item.dragging { opacity: 0.35; }
     .igrid-palette-item.clear-cell { font-size: 13px; color: #aaa; }
+    .cell-count {
+      position: absolute; bottom: 2px; right: 3px;
+      font-size: 10px; font-weight: 700; line-height: 1;
+      color: rgba(255,255,255,0.9);
+      text-shadow: 0 0 3px rgba(0,0,0,0.8);
+      pointer-events: none;
+    }
+    .igrid-cell { position: relative; }
 
     .report-summary {
       background: #e8f4e8; border: 1px solid #b8d8b8; border-radius: 8px;
@@ -1089,14 +1097,26 @@ function drawBed(b) {
         if (!cell || cell.occupied) return;
         const emoji = typeof cell === 'string' ? cell : cell.emoji;
         if (!emoji) return;
-        const rSpan = cell.rowSpan || 1;
-        const cSpan = cell.colSpan || 1;
+        const rSpan    = cell.rowSpan  || 1;
+        const cSpan    = cell.colSpan  || 1;
+        const perSqft  = cell.perSqft  || 1;
         const ex = x + ft(ci) + ft(cSpan) / 2;
         const ey = y + ft(ri) + ft(rSpan) / 2;
         const fs = clamp(10, Math.round(SCALE * Math.min(rSpan, cSpan) * 0.58), 36);
         ctx.font = `${fs}px sans-serif`;
         ctx.globalAlpha = 0.92;
         ctx.fillText(emoji, ex, ey);
+        // Dense plants: draw ×N count badge in bottom-right of cell
+        if (perSqft > 1) {
+          const badgeFs = clamp(7, Math.round(SCALE * 0.26), 12);
+          ctx.font = `bold ${badgeFs}px sans-serif`;
+          ctx.fillStyle = '#fff';
+          ctx.globalAlpha = 0.85;
+          ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+          ctx.fillText(`×${perSqft}`, x + ft(ci) + ft(cSpan) - 2, y + ft(ri) + ft(rSpan) - 1);
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#fff';
+        }
       });
     });
     ctx.globalAlpha = 1;
@@ -2071,10 +2091,11 @@ function igridTouchStart(e) {
   // Don't preventDefault yet — wait to see if it's a drag or a scroll swipe
   const rowSpan = +el.dataset.rowSpan || 1;
   const colSpan = +el.dataset.colSpan || 1;
+  const perSqft = +el.dataset.perSqft || 1;
   if (isPalette) {
-    igridDragSrc = { bedId: el.dataset.bed, emoji: el.dataset.emoji, fromPalette: true, rowSpan, colSpan };
+    igridDragSrc = { bedId: el.dataset.bed, emoji: el.dataset.emoji, fromPalette: true, rowSpan, colSpan, perSqft };
   } else {
-    igridDragSrc = { bedId: el.dataset.bed, row: +el.dataset.row, col: +el.dataset.col, fromPalette: false, rowSpan, colSpan };
+    igridDragSrc = { bedId: el.dataset.bed, row: +el.dataset.row, col: +el.dataset.col, fromPalette: false, rowSpan, colSpan, perSqft };
   }
   igridTouchEl = el;
   igridTouchStartPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -2156,12 +2177,14 @@ function igridTouchEnd(e) {
   igridDragActivated = false;
 }
 
-// Returns grid span dimensions for a plant. Plants ≤1 sqft stay 1×1;
-// larger plants snap to the next square size (e.g. 4sqft → 2×2, 9sqft → 3×3).
+// Returns grid span dimensions for a plant.
+// Dense plants (<1 sqft) stay 1×1 but get a perSqft count > 1 (e.g. radishes: ×9).
+// Larger plants snap to the next square size (e.g. 4sqft → 2×2, 9sqft → 3×3).
 function getPlantSpan(sqft) {
-  if (sqft <= 1) return { rowSpan: 1, colSpan: 1 };
+  if (sqft < 1) return { rowSpan: 1, colSpan: 1, perSqft: Math.max(2, Math.round(1 / sqft)) };
+  if (sqft === 1) return { rowSpan: 1, colSpan: 1, perSqft: 1 };
   const side = Math.ceil(Math.sqrt(sqft));
-  return { rowSpan: side, colSpan: side };
+  return { rowSpan: side, colSpan: side, perSqft: 1 };
 }
 
 function canPlaceSpan(cells, r, c, rowSpan, colSpan, L, W) {
@@ -2172,8 +2195,8 @@ function canPlaceSpan(cells, r, c, rowSpan, colSpan, L, W) {
   return true;
 }
 
-function placeSpanInGrid(cells, r, c, rowSpan, colSpan, emoji) {
-  cells[r][c] = { emoji, rowSpan, colSpan };
+function placeSpanInGrid(cells, r, c, rowSpan, colSpan, emoji, perSqft = 1) {
+  cells[r][c] = { emoji, rowSpan, colSpan, perSqft };
   for (let dr = 0; dr < rowSpan; dr++)
     for (let dc = 0; dc < colSpan; dc++)
       if (!(dr === 0 && dc === 0)) cells[r + dr][c + dc] = { occupied: true };
@@ -2214,14 +2237,14 @@ function initPlantGrid(bed) {
     const sharePerPlant = Math.max(1, Math.round(totalCells / plants.length));
     plants.forEach(pName => {
       const pd = PLANT_DATA[pName];
-      const { rowSpan, colSpan } = getPlantSpan(pd.sqft);
+      const { rowSpan, colSpan, perSqft } = getPlantSpan(pd.sqft);
       const spanArea = rowSpan * colSpan;
       const instances = Math.max(1, Math.round(sharePerPlant / spanArea));
       for (let i = 0; i < instances; i++) {
         outer: for (let r = 0; r < L; r++)
           for (let c = 0; c < W; c++)
             if (canPlaceSpan(cells, r, c, rowSpan, colSpan, L, W)) {
-              placeSpanInGrid(cells, r, c, rowSpan, colSpan, pd.emoji);
+              placeSpanInGrid(cells, r, c, rowSpan, colSpan, pd.emoji, perSqft);
               break outer;
             }
       }
@@ -2234,7 +2257,7 @@ function initPlantGrid(bed) {
 function addPlantToGrid(bed, pName) {
   if (!bed.plantGrid) { initPlantGrid(bed); return; }
   const pd = PLANT_DATA[pName]; if (!pd) return;
-  const { rowSpan, colSpan } = getPlantSpan(pd.sqft);
+  const { rowSpan, colSpan, perSqft } = getPlantSpan(pd.sqft);
   const L = bed.plantGrid.length;
   const W = bed.plantGrid[0]?.length || 0;
   const instances = Math.max(1, Math.round((L * W) / bed.plants.length / (rowSpan * colSpan)));
@@ -2242,7 +2265,7 @@ function addPlantToGrid(bed, pName) {
     outer: for (let r = 0; r < L; r++)
       for (let c = 0; c < W; c++)
         if (canPlaceSpan(bed.plantGrid, r, c, rowSpan, colSpan, L, W)) {
-          placeSpanInGrid(bed.plantGrid, r, c, rowSpan, colSpan, pd.emoji);
+          placeSpanInGrid(bed.plantGrid, r, c, rowSpan, colSpan, pd.emoji, perSqft);
           break outer;
         }
   }
@@ -2286,20 +2309,23 @@ function igridCellHTML(cell, bedId, ri, ci, cellSize = 38) {
   if (cell && cell.occupied) return '';
 
   // Support both legacy string cells and new object format
-  const emoji   = cell === null ? null : (typeof cell === 'string' ? cell : cell.emoji);
-  const rowSpan = (cell && cell.rowSpan) || 1;
-  const colSpan = (cell && cell.colSpan) || 1;
+  const emoji    = cell === null ? null : (typeof cell === 'string' ? cell : cell.emoji);
+  const rowSpan  = (cell && cell.rowSpan)  || 1;
+  const colSpan  = (cell && cell.colSpan)  || 1;
+  const perSqft  = (cell && cell.perSqft)  || 1;
   const isSpanning = rowSpan > 1 || colSpan > 1;
+  const isDense    = perSqft > 1;
   const baseFs = Math.round(cellSize * 0.53); // ~20px at 38px cell
 
-  const spanStyle = isSpanning ? `grid-column:span ${colSpan};grid-row:span ${rowSpan};` : '';
-  const fsStyle   = `font-size:${isSpanning ? Math.min(48, baseFs * Math.min(rowSpan, colSpan)) : baseFs}px;`;
+  const spanStyle  = isSpanning ? `grid-column:span ${colSpan};grid-row:span ${rowSpan};` : '';
+  const fsStyle    = `font-size:${isSpanning ? Math.min(48, baseFs * Math.min(rowSpan, colSpan)) : baseFs}px;`;
   const extraStyle = isSpanning ? 'border-radius:8px;' : '';
+  const badge      = (emoji && isDense) ? `<span class="cell-count">×${perSqft}</span>` : '';
 
-  return `<div class="igrid-cell ${emoji ? 'has-plant' : 'empty'}"
+  return `<div class="igrid-cell ${emoji ? 'has-plant' : 'empty'}${isDense ? ' dense' : ''}"
     draggable="${emoji ? 'true' : 'false'}"
     data-bed="${bedId}" data-row="${ri}" data-col="${ci}"
-    data-row-span="${rowSpan}" data-col-span="${colSpan}"
+    data-row-span="${rowSpan}" data-col-span="${colSpan}" data-per-sqft="${perSqft}"
     style="${spanStyle}${fsStyle}${extraStyle}"
     ondragstart="igridDragStart(event)"
     ondragover="igridDragOver(event)"
@@ -2309,7 +2335,7 @@ function igridCellHTML(cell, bedId, ri, ci, cellSize = 38) {
     ondblclick="${emoji ? 'igridEraseCell(event)' : ''}"
     ontouchstart="igridTouchStart(event)"
     ontouchmove="igridTouchMove(event)"
-    ontouchend="igridTouchEnd(event)">${emoji || '·'}</div>`;
+    ontouchend="igridTouchEnd(event)">${emoji || '·'}${badge}</div>`;
 }
 
 function renderInteractiveGrid(bed) {
@@ -2327,13 +2353,14 @@ function renderInteractiveGrid(bed) {
   // Plant palette — drag or touch from here to paint individual cells
   const paletteItems = (bed.plants || []).map(pName => {
     const pd = PLANT_DATA[pName]; if (!pd) return '';
-    const { rowSpan, colSpan } = getPlantSpan(pd.sqft);
+    const { rowSpan, colSpan, perSqft } = getPlantSpan(pd.sqft);
+    const badge = perSqft > 1 ? `<span class="cell-count" style="font-size:9px">×${perSqft}</span>` : '';
     return `<div class="igrid-palette-item" draggable="true"
       data-bed="${bed.id}" data-emoji="${pd.emoji}" data-palette="true"
-      data-row-span="${rowSpan}" data-col-span="${colSpan}"
+      data-row-span="${rowSpan}" data-col-span="${colSpan}" data-per-sqft="${perSqft}"
       ondragstart="igridDragStart(event)" ondragend="igridDragEnd(event)"
       ontouchstart="igridTouchStart(event)" ontouchmove="igridTouchMove(event)" ontouchend="igridTouchEnd(event)"
-      title="${pName} (${pd.sqft >= 1 ? pd.sqft + ' sq ft' : Math.round(1/pd.sqft) + '/sq ft'})">${pd.emoji}</div>`;
+      title="${pName} (${perSqft > 1 ? perSqft + '/sq ft' : pd.sqft + ' sq ft'})">${pd.emoji}${badge}</div>`;
   }).join('') +
   `<div class="igrid-palette-item clear-cell" draggable="true"
     data-bed="${bed.id}" data-emoji="" data-palette="true"
@@ -2378,10 +2405,11 @@ function igridDragStart(e) {
   const el = e.currentTarget;
   const rowSpan = +el.dataset.rowSpan || 1;
   const colSpan = +el.dataset.colSpan || 1;
+  const perSqft = +el.dataset.perSqft || 1;
   if (el.dataset.palette === 'true') {
-    igridDragSrc = { bedId: el.dataset.bed, emoji: el.dataset.emoji, fromPalette: true, rowSpan, colSpan };
+    igridDragSrc = { bedId: el.dataset.bed, emoji: el.dataset.emoji, fromPalette: true, rowSpan, colSpan, perSqft };
   } else {
-    igridDragSrc = { bedId: el.dataset.bed, row: +el.dataset.row, col: +el.dataset.col, fromPalette: false, rowSpan, colSpan };
+    igridDragSrc = { bedId: el.dataset.bed, row: +el.dataset.row, col: +el.dataset.col, fromPalette: false, rowSpan, colSpan, perSqft };
   }
   e.dataTransfer.effectAllowed = 'move';
   el.classList.add('dragging');
@@ -2419,7 +2447,7 @@ function igridDrop(e) {
       // ✕ erase palette item
       clearSpanFromGrid(bed.plantGrid, dst.row, dst.col);
     } else {
-      const { rowSpan, colSpan } = igridDragSrc;
+      const { rowSpan, colSpan, perSqft: srcPerSqft } = igridDragSrc;
       // Center the span on the drop cell, then clamp to grid bounds
       const pr = Math.max(0, Math.min(dst.row - Math.floor(rowSpan / 2), L - rowSpan));
       const pc = Math.max(0, Math.min(dst.col - Math.floor(colSpan / 2), W - colSpan));
@@ -2429,7 +2457,7 @@ function igridDrop(e) {
       }
       clearSpanFromGrid(bed.plantGrid, pr, pc);
       if (canPlaceSpan(bed.plantGrid, pr, pc, rowSpan, colSpan, L, W)) {
-        placeSpanInGrid(bed.plantGrid, pr, pc, rowSpan, colSpan, emoji);
+        placeSpanInGrid(bed.plantGrid, pr, pc, rowSpan, colSpan, emoji, srcPerSqft || 1);
       } else {
         showIgridToast(`Not enough space here — this plant needs a ${colSpan}×${rowSpan} ft area.`);
         igridDragSrc = null; rerenderIGrid(bed.id); return;
