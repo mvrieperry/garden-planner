@@ -1396,6 +1396,8 @@ canvas.addEventListener('mouseup', () => {
   let touchStart    = null;
   let touchMoved    = false;
   let pinchDist     = null;
+  let lastTapId     = null;   // for double-tap detection
+  let lastTapTime   = 0;
   let pinchMid      = null;
 
   function getTouchDist(t) {
@@ -1504,7 +1506,24 @@ canvas.addEventListener('mouseup', () => {
     e.preventDefault();
     pinchDist = null;
     if (isRotating) { isRotating = false; saveData(); draw(); touchHit = null; return; }
-    if (!touchMoved && touchHit) select(touchHit.item.id, touchHit.type);
+    if (!touchMoved && touchHit) {
+      const hitId  = touchHit.item.id;
+      const hitType = touchHit.type;
+      const now    = Date.now();
+      const isDoubleTap = hitId === lastTapId && (now - lastTapTime) < 350;
+      if (isDoubleTap) {
+        // Double-tap → open panel
+        select(hitId, hitType, true);
+        lastTapId = null; lastTapTime = 0;
+      } else {
+        // Single tap → just select (show rotation handle, no panel)
+        select(hitId, hitType, false);
+        lastTapId   = hitId;
+        lastTapTime = now;
+      }
+    } else if (!touchHit) {
+      select(null);
+    }
     isPanning = false;
     if (dragging) canvas.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
     else { dragging = null; renderLists(); draw(); }
@@ -1552,11 +1571,11 @@ document.addEventListener('keydown', e => {
 });
 
 // ─── Selection ────────────────────────────────────────────────────────────────
-function select(id, type) {
+function select(id, type, openPanel = true) {
   selectedId = id;
   const panel = document.getElementById('rightPanel');
-  if (id) { panel.classList.add('open'); syncPanel(); }
-  else    { panel.classList.remove('open'); }
+  if (id && openPanel) { panel.classList.add('open'); syncPanel(); }
+  else if (!id)        { panel.classList.remove('open'); }
   draw(); renderLists();
 }
 
