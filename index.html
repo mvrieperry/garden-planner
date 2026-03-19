@@ -764,6 +764,9 @@ let garden   = { width: 20, height: 18 };
 let selectedId = null;
 let dragging   = null;
 let dragOff    = { x: 0, y: 0 };
+let isRotating      = false;
+let rotateStartAngle = 0;
+let rotateStartRot   = 0;
 let nextId     = 20;
 
 // ─── Viewport (zoom / pan) ────────────────────────────────────────────────────
@@ -979,8 +982,16 @@ function draw() {
 }
 
 function drawObstacle(o) {
-  const x = ft(o.x), y = ft(o.y), w = ft(o.w), h = ft(o.h);
+  const ox = ft(o.x), oy = ft(o.y), w = ft(o.w), h = ft(o.h);
+  const cx = ox + w/2, cy = oy + h/2;
+  const rot = o.rotation || 0;
   const sel = o.id === selectedId;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rot);
+  ctx.translate(-w/2, -h/2);
+  const x = 0, y = 0;
 
   ctx.globalAlpha = 0.55;
   ctx.fillStyle = o.color;
@@ -998,11 +1009,54 @@ function drawObstacle(o) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   wrapText(o.name, x + w/2, y + h/2, w - 8, 14);
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.restore();
+
+  // Rotation handle
+  if (sel) {
+    const handleDist = 22 / viewZoom;
+    const handleR    = 7  / viewZoom;
+    const sin = Math.sin(rot), cos = Math.cos(rot);
+    const topCX = cx + (h/2) * sin;
+    const topCY = cy - (h/2) * cos;
+    const hx = topCX + handleDist * sin;
+    const hy = topCY - handleDist * cos;
+    ctx.beginPath();
+    ctx.moveTo(topCX, topCY);
+    ctx.lineTo(hx, hy);
+    ctx.strokeStyle = '#ff9f0a';
+    ctx.lineWidth = 1.5 / viewZoom;
+    ctx.setLineDash([3 / viewZoom, 2 / viewZoom]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.arc(hx, hy, handleR, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff9f0a';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1 / viewZoom;
+    ctx.stroke();
+    ctx.fillStyle = '#333';
+    ctx.font = `bold ${Math.round(9 / viewZoom)}px sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('↻', hx, hy);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  }
 }
 
 function drawBed(b) {
-  const x = ft(b.x), y = ft(b.y), w = ft(b.w), h = ft(b.h);
+  const bx = ft(b.x), by = ft(b.y), w = ft(b.w), h = ft(b.h);
+  const cx = bx + w/2, cy = by + h/2;
+  const rot = b.rotation || 0;
   const sel = b.id === selectedId;
+  const isPot    = b.type === 'pot';
+  const isGround = b.type === 'ground';
+
+  // Apply rotation transform around bed center
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rot);
+  ctx.translate(-w/2, -h/2);
+  const x = 0, y = 0; // local origin = bed top-left
 
   // Shadow
   ctx.shadowColor = sel ? 'rgba(255,159,10,0.4)' : 'rgba(0,0,0,0.18)';
@@ -1015,26 +1069,23 @@ function drawBed(b) {
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
   ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
 
-  const isPot    = b.type === 'pot';
-  const isGround = b.type === 'ground';
-
   if (isPot) {
     const r  = ft(b.diam) / 2;
-    const cx = x + r, cy = y + r;
+    const potCx = x + r, potCy = y + r;
     // Shadow
     ctx.shadowColor = sel ? 'rgba(255,159,10,0.4)' : 'rgba(0,0,0,0.18)';
     ctx.shadowBlur = sel ? 12 : 5;
     ctx.shadowOffsetX = 2; ctx.shadowOffsetY = 2;
     ctx.fillStyle = b.color;
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(potCx, potCy, r, 0, Math.PI*2); ctx.fill();
     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
     ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
     // Inner rim ring
-    ctx.beginPath(); ctx.arc(cx, cy, r * 0.82, 0, Math.PI*2);
+    ctx.beginPath(); ctx.arc(potCx, potCy, r * 0.82, 0, Math.PI*2);
     ctx.strokeStyle = 'rgba(0,0,0,0.2)'; ctx.lineWidth = 2; ctx.stroke();
     // Selection ring
     if (sel) {
-      ctx.beginPath(); ctx.arc(cx, cy, r + 3, 0, Math.PI*2);
+      ctx.beginPath(); ctx.arc(potCx, potCy, r + 3, 0, Math.PI*2);
       ctx.strokeStyle = '#ff9f0a'; ctx.lineWidth = 3; ctx.stroke();
     }
     // Name + diameter labels
@@ -1042,21 +1093,22 @@ function drawBed(b) {
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const hasPlants = b.plants && b.plants.length;
     ctx.font = `bold ${clamp(9, 12, r / 2)}px sans-serif`;
-    ctx.fillText(b.name, cx, hasPlants ? cy - r * 0.45 : cy - r * 0.18);
+    ctx.fillText(b.name, potCx, hasPlants ? potCy - r * 0.45 : potCy - r * 0.18);
     ctx.font = `${clamp(8, 10, r / 3)}px sans-serif`;
     ctx.globalAlpha = 0.75;
-    ctx.fillText(`${b.diam * 12}"`, cx, hasPlants ? cy - r * 0.18 : cy + r * 0.32);
+    ctx.fillText(`${b.diam * 12}"`, potCx, hasPlants ? potCy - r * 0.18 : potCy + r * 0.32);
     ctx.globalAlpha = 1;
     // Plant emojis (up to 2 inside the circle)
     if (hasPlants && r > 20) {
       ctx.font = `${clamp(9, 11, r / 3)}px sans-serif`;
       b.plants.slice(0, 2).forEach((p, i) => {
         ctx.globalAlpha = 0.88;
-        ctx.fillText(p, cx, cy + r * 0.2 + i * 14);
+        ctx.fillText(p, potCx, potCy + r * 0.2 + i * 14);
       });
       ctx.globalAlpha = 1;
     }
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.restore();
     return;
   }
 
@@ -1163,6 +1215,43 @@ function drawBed(b) {
   }
 
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.restore(); // end rotation transform
+
+  // Rotation handle — drawn in world space after restore
+  if (sel) {
+    const handleDist = 22 / viewZoom;
+    const handleR    = 7  / viewZoom;
+    const sin = Math.sin(rot), cos = Math.cos(rot);
+    // Top-center of bed in world: cx + h/2*sin, cy - h/2*cos
+    const topCX = cx + (h/2) * sin;
+    const topCY = cy - (h/2) * cos;
+    // Handle further in same "up" direction
+    const hx = topCX + handleDist * sin;
+    const hy = topCY - handleDist * cos;
+    // Connector line
+    ctx.beginPath();
+    ctx.moveTo(topCX, topCY);
+    ctx.lineTo(hx, hy);
+    ctx.strokeStyle = '#ff9f0a';
+    ctx.lineWidth = 1.5 / viewZoom;
+    ctx.setLineDash([3 / viewZoom, 2 / viewZoom]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Handle circle
+    ctx.beginPath();
+    ctx.arc(hx, hy, handleR, 0, Math.PI * 2);
+    ctx.fillStyle = '#ff9f0a';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1 / viewZoom;
+    ctx.stroke();
+    // ↻ icon
+    ctx.fillStyle = '#333';
+    ctx.font = `bold ${Math.round(9 / viewZoom)}px sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('↻', hx, hy);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  }
 }
 
 // ─── Canvas helpers ───────────────────────────────────────────────────────────
@@ -1197,17 +1286,30 @@ function wrapText(text, cx, cy, maxW, lineH) {
 function clamp(min, max, val) { return Math.min(max, Math.max(min, val)); }
 
 // ─── Hit test ────────────────────────────────────────────────────────────────
+function hitRotateHandle(px, py, item) {
+  const w = ft(item.w), h = ft(item.h);
+  const cx = ft(item.x) + w/2, cy = ft(item.y) + h/2;
+  const rot = item.rotation || 0;
+  const handleDist = 22 / viewZoom;
+  const hx = cx + (h/2 + handleDist) * Math.sin(rot);
+  const hy = cy - (h/2 + handleDist) * Math.cos(rot);
+  return Math.sqrt((px - hx)**2 + (py - hy)**2) <= 10 / viewZoom;
+}
+
 function hitTest(px, py) {
-  for (let i = beds.length - 1; i >= 0; i--) {
-    const b = beds[i];
-    if (px >= ft(b.x) && px <= ft(b.x+b.w) && py >= ft(b.y) && py <= ft(b.y+b.h))
-      return { type:'bed', item:b };
+  function inRotated(item) {
+    const w = ft(item.w), h = ft(item.h);
+    const cx = ft(item.x) + w/2, cy = ft(item.y) + h/2;
+    const rot = -(item.rotation || 0);
+    const dx = px - cx, dy = py - cy;
+    const lx = dx * Math.cos(rot) - dy * Math.sin(rot);
+    const ly = dx * Math.sin(rot) + dy * Math.cos(rot);
+    return lx >= -w/2 && lx <= w/2 && ly >= -h/2 && ly <= h/2;
   }
-  for (let i = obstacles.length - 1; i >= 0; i--) {
-    const o = obstacles[i];
-    if (px >= ft(o.x) && px <= ft(o.x+o.w) && py >= ft(o.y) && py <= ft(o.y+o.h))
-      return { type:'obstacle', item:o };
-  }
+  for (let i = beds.length - 1; i >= 0; i--)
+    if (inRotated(beds[i])) return { type:'bed', item:beds[i] };
+  for (let i = obstacles.length - 1; i >= 0; i--)
+    if (inRotated(obstacles[i])) return { type:'obstacle', item:obstacles[i] };
   return null;
 }
 
@@ -1216,6 +1318,19 @@ canvas.addEventListener('mousedown', e => {
   const r  = canvas.getBoundingClientRect();
   const sx = e.clientX - r.left, sy = e.clientY - r.top;
   const { x: wpx, y: wpy } = screenToWorld(sx, sy);
+
+  // Check rotation handle of selected item first
+  const selItem = selectedId && (beds.find(b => b.id === selectedId) || obstacles.find(o => o.id === selectedId));
+  if (selItem && hitRotateHandle(wpx, wpy, selItem)) {
+    saveHistory();
+    isRotating = true;
+    const cen = { x: ft(selItem.x) + ft(selItem.w)/2, y: ft(selItem.y) + ft(selItem.h)/2 };
+    rotateStartAngle = Math.atan2(wpx - cen.x, -(wpy - cen.y));
+    rotateStartRot   = selItem.rotation || 0;
+    canvas.style.cursor = 'grabbing';
+    return;
+  }
+
   const hit = hitTest(wpx, wpy);
   if (hit) {
     saveHistory();
@@ -1236,7 +1351,18 @@ canvas.addEventListener('mousemove', e => {
   const sx = e.clientX - r.left, sy = e.clientY - r.top;
   const { x: wpx, y: wpy } = screenToWorld(sx, sy);
 
-  if (dragging) {
+  if (isRotating) {
+    const selItem = beds.find(b => b.id === selectedId) || obstacles.find(o => o.id === selectedId);
+    if (selItem) {
+      const cenX = ft(selItem.x) + ft(selItem.w)/2, cenY = ft(selItem.y) + ft(selItem.h)/2;
+      const angle = Math.atan2(wpx - cenX, -(wpy - cenY));
+      let newRot = rotateStartRot + (angle - rotateStartAngle);
+      // Snap to 45° increments
+      newRot = Math.round(newRot / (Math.PI / 4)) * (Math.PI / 4);
+      selItem.rotation = newRot;
+      draw();
+    }
+  } else if (dragging) {
     const newX = snap(Math.max(0, Math.min(px(wpx - dragOff.x), garden.width  - dragging.w)));
     const newY = snap(Math.max(0, Math.min(px(wpy - dragOff.y), garden.height - dragging.h)));
     dragging.x = newX;
@@ -1253,6 +1379,7 @@ canvas.addEventListener('mousemove', e => {
 });
 
 canvas.addEventListener('mouseup', () => {
+  if (isRotating) { isRotating = false; saveData(); }
   dragging  = null;
   isPanning = false;
   canvas.style.cursor = 'default';
@@ -1299,6 +1426,18 @@ canvas.addEventListener('mouseup', () => {
     pinchDist  = null;
     const sx = t.clientX - r.left, sy = t.clientY - r.top;
     const { x: wpx, y: wpy } = screenToWorld(sx, sy);
+
+    // Check rotation handle first
+    const selItem = selectedId && (beds.find(b => b.id === selectedId) || obstacles.find(o => o.id === selectedId));
+    if (selItem && hitRotateHandle(wpx, wpy, selItem)) {
+      saveHistory();
+      isRotating = true;
+      const cen = { x: ft(selItem.x) + ft(selItem.w)/2, y: ft(selItem.y) + ft(selItem.h)/2 };
+      rotateStartAngle = Math.atan2(wpx - cen.x, -(wpy - cen.y));
+      rotateStartRot   = selItem.rotation || 0;
+      return;
+    }
+
     touchHit = hitTest(wpx, wpy);
     if (touchHit) {
       saveHistory();
@@ -1339,7 +1478,19 @@ canvas.addEventListener('mouseup', () => {
     const dx = t.clientX - touchStart.x, dy = t.clientY - touchStart.y;
     if (Math.sqrt(dx*dx + dy*dy) > 5) touchMoved = true;
 
-    if (dragging) {
+    if (isRotating) {
+      const selItem = beds.find(b => b.id === selectedId) || obstacles.find(o => o.id === selectedId);
+      if (selItem) {
+        const rr = canvas.getBoundingClientRect();
+        const { x: wpx, y: wpy } = screenToWorld(t.clientX - rr.left, t.clientY - rr.top);
+        const cenX = ft(selItem.x) + ft(selItem.w)/2, cenY = ft(selItem.y) + ft(selItem.h)/2;
+        const angle = Math.atan2(wpx - cenX, -(wpy - cenY));
+        let newRot = rotateStartRot + (angle - rotateStartAngle);
+        newRot = Math.round(newRot / (Math.PI / 4)) * (Math.PI / 4);
+        selItem.rotation = newRot;
+        draw();
+      }
+    } else if (dragging) {
       canvas.dispatchEvent(new MouseEvent('mousemove', { clientX: t.clientX, clientY: t.clientY, bubbles: true }));
     } else if (isPanning) {
       const sx = t.clientX - r.left, sy = t.clientY - r.top;
@@ -1352,6 +1503,7 @@ canvas.addEventListener('mouseup', () => {
   canvas.addEventListener('touchend', e => {
     e.preventDefault();
     pinchDist = null;
+    if (isRotating) { isRotating = false; saveData(); draw(); touchHit = null; return; }
     if (!touchMoved && touchHit) select(touchHit.item.id, touchHit.type);
     isPanning = false;
     if (dragging) canvas.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
