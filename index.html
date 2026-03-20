@@ -1643,8 +1643,9 @@ function syncPanel() {
   document.getElementById('panelTitle').textContent =
     isPot ? '🪴 Pot' : isGround ? '🌍 Ground Area' : isBed ? '🌿 Bed Details' : '⬛ Obstacle Details';
   document.getElementById('propName').value = item.name;
-  document.getElementById('propX').value    = item.x;
-  document.getElementById('propY').value    = item.y;
+  const _vp = visualPos(item);
+  document.getElementById('propX').value    = Math.round(_vp.x * 10) / 10;
+  document.getElementById('propY').value    = Math.round(_vp.y * 10) / 10;
   if (!isPot) {
     document.getElementById('propW').value = item.w;
     document.getElementById('propH').value = item.h;
@@ -1665,11 +1666,31 @@ function syncPanel() {
   }
 }
 
+// Convert between raw anchor (b.x/b.y = unrotated top-left) and
+// visual edge (left/top of the rotated AABB) so position fields
+// always show 0 when the item is at the garden wall.
+function visualPos(item) {
+  const rot = item.rotation || 0;
+  const ac = Math.abs(Math.cos(rot)), as = Math.abs(Math.sin(rot));
+  const hw = (item.w / 2) * ac + (item.h / 2) * as; // AABB half-width in ft
+  const hh = (item.w / 2) * as + (item.h / 2) * ac; // AABB half-height in ft
+  return { x: item.x + item.w / 2 - hw, y: item.y + item.h / 2 - hh };
+}
+function applyVisualPos(item, vx, vy) {
+  const rot = item.rotation || 0;
+  const ac = Math.abs(Math.cos(rot)), as = Math.abs(Math.sin(rot));
+  const hw = (item.w / 2) * ac + (item.h / 2) * as;
+  const hh = (item.w / 2) * as + (item.h / 2) * ac;
+  item.x = vx - item.w / 2 + hw;
+  item.y = vy - item.h / 2 + hh;
+}
+
 function syncPositionFields() {
   const item = getSelected();
   if (!item) return;
-  document.getElementById('propX').value = item.x;
-  document.getElementById('propY').value = item.y;
+  const vp = visualPos(item);
+  document.getElementById('propX').value = Math.round(vp.x * 10) / 10;
+  document.getElementById('propY').value = Math.round(vp.y * 10) / 10;
 }
 
 function updateProp(field, value) {
@@ -1677,7 +1698,9 @@ function updateProp(field, value) {
   if (!item) return;
   // Save history once per editing session (reset when panel re-opens via syncPanel)
   if (!_propHistorySaved) { saveHistory(); _propHistorySaved = true; }
-  item[field] = value;
+  if (field === 'x') { applyVisualPos(item, value, visualPos(item).y); }
+  else if (field === 'y') { applyVisualPos(item, visualPos(item).x, value); }
+  else { item[field] = value; }
   draw(); renderLists();
 }
 
