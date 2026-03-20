@@ -514,6 +514,11 @@
         <span>ft</span>
       </div>
       <button class="btn btn-secondary" onclick="applyGardenSize()">Apply Size</button>
+      <div style="margin-top:10px;display:flex;flex-direction:column;gap:4px">
+        <button class="btn btn-primary" onclick="addBed()">+ Add Bed</button>
+        <button class="btn btn-secondary" onclick="addGroundArea()">🌍 Add Ground Area</button>
+        <button class="btn btn-secondary" onclick="addPot()">🪴 Add Pot</button>
+      </div>
     </div>
 
     <div class="section">
@@ -524,14 +529,10 @@
     </div>
 
     <div class="section">
-      <h2>Quick Actions</h2>
-      <button class="btn btn-primary" onclick="addBed()" style="margin-bottom:4px">+ Add Bed</button>
-      <button class="btn btn-secondary" onclick="addGroundArea()" style="margin-bottom:4px">🌍 Add Ground Area</button>
-      <button class="btn btn-secondary" onclick="addPot()" style="margin-bottom:4px">🪴 Add Pot</button>
-      <button class="btn btn-secondary" onclick="addObstacle()" style="margin-bottom:8px">+ Add Obstacle</button>
-      <button class="btn btn-secondary" onclick="printPlan()">🖨️ Print Plan</button>
-      <button class="btn btn-secondary" onclick="saveJSON()">💾 Save Plan (JSON)</button>
-      <button class="btn btn-secondary" onclick="loadJSON()">📂 Load Plan (JSON)</button>
+      <h2>My Plans</h2>
+      <button class="btn btn-secondary" onclick="printPlan()" style="margin-bottom:4px">🖨️ Print Plan</button>
+      <button class="btn btn-secondary" onclick="saveJSON()" style="margin-bottom:4px">💾 Save Plan</button>
+      <button class="btn btn-secondary" onclick="loadJSON()">📂 Load Plan</button>
     </div>
 
     <div class="section">
@@ -542,6 +543,7 @@
     <div class="section">
       <h2>Obstacles</h2>
       <div id="obstacleList"></div>
+      <button class="btn btn-secondary" onclick="addObstacle()" style="margin-top:6px">+ Add Obstacle</button>
     </div>
 
     <div class="section">
