@@ -529,6 +529,7 @@
 
     <div class="section">
       <h2>Quick Actions</h2>
+      <button class="btn btn-danger" onclick="showNewGardenDialog()" style="margin-bottom:8px">🌿 New Garden</button>
       <button class="btn btn-secondary" onclick="suggestLayout()">🔄 Reset Perimeter Layout</button>
       <button class="btn btn-secondary" onclick="exportImg()">📤 Export Image</button>
       <button class="btn btn-secondary" onclick="printPlan()">🖨️ Print Plan</button>
@@ -738,6 +739,41 @@
     </div>
   </div>
 
+</div>
+
+<!-- ── New Garden Confirmation Dialog ── -->
+<div id="newGardenDialog" style="display:none;position:fixed;inset:0;z-index:1100;
+  background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:14px;max-width:360px;width:100%;
+    box-shadow:0 8px 40px rgba(0,0,0,0.25);overflow:hidden">
+    <div style="background:#fef2f2;padding:20px 22px 14px;border-bottom:1px solid #fecaca">
+      <div style="font-size:28px;margin-bottom:8px">🌿</div>
+      <div style="font-size:17px;font-weight:700;color:#991b1b">Start a New Garden?</div>
+    </div>
+    <div style="padding:16px 22px">
+      <p style="font-size:13px;color:#555;margin-bottom:6px;line-height:1.5">
+        This will <strong>clear all beds, obstacles, and plants</strong> from the canvas.
+      </p>
+      <p style="font-size:12px;color:#e57373;font-weight:600;margin-bottom:16px">
+        ⚠️ Your current plan will not be saved automatically.
+      </p>
+      <button onclick="saveJSON()" style="width:100%;padding:9px;border-radius:7px;
+        border:1px solid #b8d8b8;background:#e8f4e8;color:#2d6a30;font-size:13px;
+        font-weight:600;cursor:pointer;margin-bottom:8px">
+        💾 Save current plan first
+      </button>
+      <button onclick="confirmNewGarden()" style="width:100%;padding:9px;border-radius:7px;
+        border:none;background:#dc2626;color:#fff;font-size:13px;font-weight:700;
+        cursor:pointer;margin-bottom:8px">
+        🌿 Yes, start fresh
+      </button>
+      <button onclick="document.getElementById('newGardenDialog').style.display='none'"
+        style="width:100%;padding:8px;border-radius:7px;border:1px solid #ddd;
+        background:#f5f5f5;color:#666;font-size:13px;cursor:pointer">
+        Cancel
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- ── Report Modal ── -->
@@ -2032,6 +2068,30 @@ function saveJSON() {
   a.download = 'garden-plan.json';
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+function showNewGardenDialog() {
+  const dlg = document.getElementById('newGardenDialog');
+  dlg.style.display = 'flex';
+}
+
+function confirmNewGarden() {
+  document.getElementById('newGardenDialog').style.display = 'none';
+  // Reset all state
+  beds      = [];
+  obstacles = [];
+  garden    = { width: 20, height: 18 };
+  nextId    = 1;
+  colorIdx  = 0;
+  selectedId = null;
+  history   = []; historyIdx = -1;
+  document.getElementById('gardenWidth').value  = garden.width;
+  document.getElementById('gardenHeight').value = garden.height;
+  document.getElementById('rightPanel').classList.remove('open');
+  select(null);
+  renderLists();
+  fitView();
+  draw();
 }
 
 function loadJSON() {
