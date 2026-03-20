@@ -1401,10 +1401,17 @@ canvas.addEventListener('mousemove', e => {
       draw();
     }
   } else if (dragging) {
-    const newX = snap(Math.max(0, Math.min(px(wpx - dragOff.x), garden.width  - dragging.w)));
-    const newY = snap(Math.max(0, Math.min(px(wpy - dragOff.y), garden.height - dragging.h)));
-    dragging.x = newX;
-    dragging.y = newY;
+    // Compute AABB of the rotated item so clamping uses its visual footprint
+    const rot = dragging.rotation || 0;
+    const ac = Math.abs(Math.cos(rot)), as = Math.abs(Math.sin(rot));
+    const aabbHalfW = (dragging.w / 2) * ac + (dragging.h / 2) * as;
+    const aabbHalfH = (dragging.w / 2) * as + (dragging.h / 2) * ac;
+    const minX = aabbHalfW - dragging.w / 2;
+    const maxX = garden.width  - aabbHalfW - dragging.w / 2;
+    const minY = aabbHalfH - dragging.h / 2;
+    const maxY = garden.height - aabbHalfH - dragging.h / 2;
+    dragging.x = snap(Math.max(minX, Math.min(px(wpx - dragOff.x), maxX)));
+    dragging.y = snap(Math.max(minY, Math.min(px(wpy - dragOff.y), maxY)));
     syncPositionFields();
     draw();
   } else if (isPanning) {
